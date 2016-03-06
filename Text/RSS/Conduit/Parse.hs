@@ -23,7 +23,6 @@ import           Text.RSS.Types
 
 import           Control.Applicative
 import           Control.Foldl                hiding (mconcat)
-import           Control.Lens.TH
 import           Control.Monad                hiding (foldM)
 import           Control.Monad.Catch
 
@@ -35,24 +34,32 @@ import           Data.MonoTraversable
 import           Data.Set                     hiding (fold)
 import           Data.Text                    as Text hiding (cons, last, map,
                                                        snoc)
+import           Data.Text.Encoding
 import           Data.Time.Clock
 import           Data.Time.LocalTime
 import           Data.Time.RFC822
 import           Data.Version
 import           Data.XML.Types
 
-import           Prelude                      hiding (last, lookup)
+import           Lens.Simple
 
-import           Network.URI
+import           Prelude                      hiding (last, lookup)
 
 import           Text.Parser.Combinators
 import           Text.ParserCombinators.ReadP (readP_to_S)
 import           Text.Read                    (readMaybe)
+
+import           URI.ByteString
 -- }}}
 
 -- {{{ Util
-asURI :: MonadThrow m => Text -> m URI
-asURI t = maybe (throwM $ InvalidURI t) return . parseURIReference $ unpack t
+asRssURI :: (MonadThrow m) => Text -> m RssURI
+asRssURI t = case (parseURI' t, parseRelativeRef' t) of
+  (Right u, _) -> return $ RssURI u
+  (_, Right u) -> return $ RssURI u
+  (_, Left e) -> throwM $ InvalidURI e
+  where parseURI' = parseURI laxURIParserOptions . encodeUtf8
+        parseRelativeRef' = parseRelativeRef laxURIParserOptions . encodeUtf8
 
 asInt :: MonadThrow m => Text -> m Int
 asInt t = maybe (throwM $ InvalidInt t) return . readMaybe $ unpack t
@@ -79,12 +86,8 @@ tagName' :: (MonadCatch m) => Text -> AttrParser a -> (a -> ConduitParser Event 
 tagName' t = tagPredicate (\n -> nameLocalName n == t)
 
 -- | Tag which content is a date-time that follows RFC 3339 format.
-tagDate :: (MonadCatch m) => Text -> ConduitParser Event m UTCTime
+tagDate :: (MonadCatch m) => Name -> ConduitParser Event m UTCTime
 tagDate name = tagIgnoreAttrs name $ content (fmap zonedTimeToUTC . parseTimeRFC822)
-
--- | Like 'tagName'' but ignores all attributes.
-tagIgnoreAttrs :: (MonadCatch m) => Text -> ConduitParser Event m a -> ConduitParser Event m a
-tagIgnoreAttrs name handler = tagName' name ignoreAttrs $ const handler
 
 
 lastRequired :: (Monad m, Parsing m) => String -> FoldM m a a
@@ -103,11 +106,11 @@ rssSkipDays = named "Rss <skipDays> element" $ tagIgnoreAttrs "skipDays" $
   fromList <$> many (tagIgnoreAttrs "day" $ content asDay)
 
 
-declarePrisms [d|
-  data TextInputPiece = TextInputTitle Text | TextInputDescription Text
-                      | TextInputName Text | TextInputLink URI
-                      | TextInputUnknown
-  |]
+data TextInputPiece = TextInputTitle Text | TextInputDescription Text
+                    | TextInputName Text | TextInputLink RssURI
+                    | TextInputUnknown
+
+makeTraversals ''TextInputPiece
 
 -- | Parse a @\<textInput\>@ element.
 rssTextInput :: (MonadCatch m) => ConduitParser Event m RssTextInput
@@ -122,15 +125,15 @@ rssTextInput = named "Rss <textInput> element" $ tagIgnoreAttrs "textInput" $ do
         piece = choice [ TextInputTitle <$> tagIgnoreAttrs "title" textContent
                        , TextInputDescription <$> tagIgnoreAttrs "description" textContent
                        , TextInputName <$> tagIgnoreAttrs "name" textContent
-                       , TextInputLink <$> tagIgnoreAttrs "link" (content asURI)
+                       , TextInputLink <$> tagIgnoreAttrs "link" (content asRssURI)
                        , TextInputUnknown <$ unknownTag
                        ]
 
 
-declarePrisms [d|
-  data ImagePiece = ImageUri URI | ImageTitle Text | ImageLink URI | ImageWidth Int
-                  | ImageHeight Int | ImageDescription Text | ImageUnknown
-  |]
+data ImagePiece = ImageUri RssURI | ImageTitle Text | ImageLink RssURI | ImageWidth Int
+                | ImageHeight Int | ImageDescription Text | ImageUnknown
+
+makeTraversals ''ImagePiece
 
 -- | Parse an @\<image\>@ element.
 rssImage :: (MonadCatch m) => ConduitParser Event m RssImage
@@ -143,9 +146,9 @@ rssImage = named "Rss <image> element" $ tagIgnoreAttrs "image" $ do
     <*> generalize (handles _ImageWidth last)
     <*> generalize (handles _ImageHeight last)
     <*> generalize (handles _ImageDescription $ lastDef "")
-  where piece = choice [ ImageUri <$> tagIgnoreAttrs "uri" (content asURI)
+  where piece = choice [ ImageUri <$> tagIgnoreAttrs "uri" (content asRssURI)
                        , ImageTitle <$> tagIgnoreAttrs "title" textContent
-                       , ImageLink <$> tagIgnoreAttrs "link" (content asURI)
+                       , ImageLink <$> tagIgnoreAttrs "link" (content asRssURI)
                        , ImageWidth <$> tagIgnoreAttrs "width" (content asInt)
                        , ImageHeight <$> tagIgnoreAttrs "height" (content asInt)
                        , ImageDescription <$> tagIgnoreAttrs "description" textContent
@@ -162,35 +165,39 @@ rssCategory = named "Rss <category> element" $ tagName' "category" (textAttr "do
 rssCloud :: (MonadCatch m) => ConduitParser Event m RssCloud
 rssCloud = named "Rss <cloud> element" $ tagName' "cloud" attributes return where
   attributes = do
-    uri <- asURI . mconcat =<< sequence [textAttr "domain", pure ":" , textAttr "port", textAttr "path"]
-    RssCloud uri <$> textAttr "registerProcedure" <*> attr "protocol" asCloudProtocol
+    uri <- fmap RssURI $ RelativeRef
+      <$> fmap Just (Authority Nothing <$> (Host . encodeUtf8 <$> textAttr "domain") <*> (fmap Port <$> optional (attr "port" asInt)))
+      <*> (encodeUtf8 <$> textAttr "path")
+      <*> pure (Query [])
+      <*> pure Nothing
+    RssCloud uri <$> textAttr "registerProcedure" <*> attr "protocol" asCloudProtocol <* ignoreAttrs
 
 -- | Parse a @\<guid\>@ element.
 rssGuid :: MonadCatch m => ConduitParser Event m RssGuid
 rssGuid = named "RSS <guid> element" $ tagName' "guid" attributes handler where
   attributes = optional (attr "isPermaLink" asBool) <* ignoreAttrs
-  handler (Just True) = GuidUri <$> content asURI
+  handler (Just True) = GuidUri <$> content asRssURI
   handler _ = GuidText <$> textContent
 
 -- | Parse an @\<enclosure\>@ element.
 rssEnclosure :: MonadCatch m => ConduitParser Event m RssEnclosure
 rssEnclosure = named "Rss <enclosure> element" $ tagName' "enclosure" attributes handler where
-  attributes = (,,) <$> attr "url" asURI <*> attr "length" asInt <*> textAttr "type" <* ignoreAttrs
+  attributes = (,,) <$> attr "url" asRssURI <*> attr "length" asInt <*> textAttr "type" <* ignoreAttrs
   handler (uri, length_, type_) = return $ RssEnclosure uri length_ type_
 
 -- | Parse a @\<source\>@ element.
 rssSource :: MonadCatch m => ConduitParser Event m RssSource
 rssSource = named "Rss <source> element" $ tagName' "source" attributes handler where
-  attributes = attr "url" asURI <* ignoreAttrs
+  attributes = attr "url" asRssURI <* ignoreAttrs
   handler uri = RssSource uri <$> textContent
 
 
-declarePrisms [d|
-  data ItemPiece = ItemTitle Text | ItemLink URI | ItemDescription Text
-                 | ItemAuthor Text | ItemCategory RssCategory | ItemComments URI
-                 | ItemEnclosure RssEnclosure | ItemGuid RssGuid | ItemPubDate UTCTime
-                 | ItemSource RssSource | ItemUnknown
-  |]
+data ItemPiece = ItemTitle Text | ItemLink RssURI | ItemDescription Text
+               | ItemAuthor Text | ItemCategory RssCategory | ItemComments RssURI
+               | ItemEnclosure RssEnclosure | ItemGuid RssGuid | ItemPubDate UTCTime
+               | ItemSource RssSource | ItemUnknown
+
+makeTraversals ''ItemPiece
 
 -- | Parse an @\<item\>@ element.
 rssItem :: MonadCatch m => ConduitParser Event m RssItem
@@ -208,11 +215,11 @@ rssItem = named "Rss <item> element" $ tagIgnoreAttrs "item" $ do
     <*> handles _ItemPubDate last
     <*> handles _ItemSource last
   where piece = choice [ ItemTitle <$> tagIgnoreAttrs "title" textContent
-                       , ItemLink <$> tagIgnoreAttrs "link" (content asURI)
+                       , ItemLink <$> tagIgnoreAttrs "link" (content asRssURI)
                        , ItemDescription <$> tagIgnoreAttrs "description" textContent
                        , ItemAuthor <$> tagIgnoreAttrs "author" textContent
                        , ItemCategory <$> rssCategory
-                       , ItemComments <$> tagIgnoreAttrs "comments" (content asURI)
+                       , ItemComments <$> tagIgnoreAttrs "comments" (content asRssURI)
                        , ItemEnclosure <$> rssEnclosure
                        , ItemGuid <$> rssGuid
                        , ItemPubDate <$> tagDate "pubDate"
@@ -220,16 +227,16 @@ rssItem = named "Rss <item> element" $ tagIgnoreAttrs "item" $ do
                        ]
 
 
-declarePrisms [d|
-  data ChannelPiece = ChannelTitle Text | ChannelLink URI | ChannelDescription Text
-                    | ChannelItem RssItem | ChannelLanguage Text | ChannelCopyright Text
-                    | ChannelManagingEditor Text | ChannelWebmaster Text | ChannelPubDate UTCTime
-                    | ChannelLastBuildDate UTCTime | ChannelCategory RssCategory
-                    | ChannelGenerator Text | ChannelDocs URI | ChannelCloud RssCloud
-                    | ChannelTtl Int | ChannelImage RssImage | ChannelRating Text
-                    | ChannelTextInput RssTextInput | ChannelSkipHours (Set Hour)
-                    | ChannelSkipDays (Set Day) | ChannelUnknown
-  |]
+data ChannelPiece = ChannelTitle Text | ChannelLink RssURI | ChannelDescription Text
+                  | ChannelItem RssItem | ChannelLanguage Text | ChannelCopyright Text
+                  | ChannelManagingEditor Text | ChannelWebmaster Text | ChannelPubDate UTCTime
+                  | ChannelLastBuildDate UTCTime | ChannelCategory RssCategory
+                  | ChannelGenerator Text | ChannelDocs RssURI | ChannelCloud RssCloud
+                  | ChannelTtl Int | ChannelImage RssImage | ChannelRating Text
+                  | ChannelTextInput RssTextInput | ChannelSkipHours (Set Hour)
+                  | ChannelSkipDays (Set Day) | ChannelUnknown
+
+makeTraversals ''ChannelPiece
 
 -- | Parse an @\<rss\>@ element.
 rssDocument :: MonadCatch m => ConduitParser Event m RssDocument
@@ -258,7 +265,7 @@ rssDocument = named "RSS <rss> element" $ tagName' "rss" attributes $ \version -
     <*> generalize (handles _ChannelSkipDays $ lastDef mempty)
   where piece :: MonadCatch m => ConduitParser Event m ChannelPiece
         piece = choice [ ChannelTitle <$> tagIgnoreAttrs "title" textContent
-                       , ChannelLink <$> tagIgnoreAttrs "link" (content asURI)
+                       , ChannelLink <$> tagIgnoreAttrs "link" (content asRssURI)
                        , ChannelDescription <$> tagIgnoreAttrs "description" textContent
                        , ChannelItem <$> rssItem
                        , ChannelLanguage <$> tagIgnoreAttrs "language" textContent
@@ -269,7 +276,7 @@ rssDocument = named "RSS <rss> element" $ tagName' "rss" attributes $ \version -
                        , ChannelLastBuildDate <$> tagDate "lastBuildDate"
                        , ChannelCategory <$> rssCategory
                        , ChannelGenerator <$> tagIgnoreAttrs "generator" textContent
-                       , ChannelDocs <$> tagIgnoreAttrs "docs" (content asURI)
+                       , ChannelDocs <$> tagIgnoreAttrs "docs" (content asRssURI)
                        , ChannelCloud <$> rssCloud
                        , ChannelTtl <$> tagIgnoreAttrs "ttl" (content asInt)
                        , ChannelImage <$> rssImage

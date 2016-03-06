@@ -1,10 +1,11 @@
-{-# LANGUAGE DeriveGeneric          #-}
-{-# LANGUAGE FlexibleInstances      #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE MultiParamTypeClasses  #-}
-{-# LANGUAGE StandaloneDeriving     #-}
-{-# LANGUAGE TemplateHaskell        #-}
-{-# LANGUAGE TypeOperators          #-}
+{-# LANGUAGE DeriveGeneric             #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FlexibleInstances         #-}
+{-# LANGUAGE GADTs                     #-}
+{-# LANGUAGE MultiParamTypeClasses     #-}
+{-# LANGUAGE RankNTypes                #-}
+{-# LANGUAGE StandaloneDeriving        #-}
+{-# LANGUAGE TypeOperators             #-}
 -- | RSS is an XML dialect for Web content syndication.
 --
 -- Example:
@@ -34,7 +35,6 @@
 module Text.RSS.Types where
 
 -- {{{ Imports
-import           Control.Lens.TH
 import           Control.Monad.Catch
 
 import           Data.Set
@@ -45,9 +45,9 @@ import           Data.Version
 
 import           GHC.Generics        hiding ((:+:))
 
-import           Network.URI
-
 import           Text.Read
+
+import           URI.ByteString
 -- }}}
 
 
@@ -55,29 +55,42 @@ data RssException = InvalidBool Text
                   | InvalidDay Text
                   | InvalidHour Int
                   | InvalidInt Text
-                  | InvalidURI Text
+                  | InvalidURI URIParseError
                   | InvalidVersion Text
                   | InvalidProtocol Text
 
 deriving instance Eq RssException
-instance Show RssException where
-  show (InvalidBool t) = "Invalid bool: " ++ unpack t
-  show (InvalidDay t) = "Invalid day: " ++ unpack t
-  show (InvalidHour i) = "Invalid hour: " ++ show i
-  show (InvalidInt t) = "Invalid int: " ++ unpack t
-  show (InvalidURI t) = "Invalid URI: " ++ unpack t
-  show (InvalidVersion t) = "Invalid version: " ++ unpack t
-  show (InvalidProtocol t) = "Invalid Protocol: expected \"xml-rpc\", \"soap\" or \"http-post\", got \"" ++ unpack t ++ "\""
-instance Exception RssException
+deriving instance Show RssException
+
+instance Exception RssException where
+  displayException (InvalidBool t) = "Invalid bool: " ++ unpack t
+  displayException (InvalidDay t) = "Invalid day: " ++ unpack t
+  displayException (InvalidHour i) = "Invalid hour: " ++ show i
+  displayException (InvalidInt t) = "Invalid int: " ++ unpack t
+  displayException (InvalidURI t) = "Invalid URI reference: " ++ show t
+  displayException (InvalidVersion t) = "Invalid version: " ++ unpack t
+  displayException (InvalidProtocol t) = "Invalid Protocol: expected \"xml-rpc\", \"soap\" or \"http-post\", got \"" ++ unpack t ++ "\""
+
+
+data RssURI = forall a . RssURI (URIRef a)
+
+instance Eq RssURI where
+  RssURI a@URI{} == RssURI b@URI{} = a == b
+  RssURI a@RelativeRef{} == RssURI b@RelativeRef{} = a == b
+  _ == _ = False
+instance Show RssURI where
+  show (RssURI a@URI{}) = show a
+  show (RssURI a@RelativeRef{}) = show a
+
+withRssURI :: (forall a . URIRef a -> b) -> RssURI -> b
+withRssURI f (RssURI a) = f a
 
 
 -- | The @\<category\>@ element.
-declareLenses [d|
-  data RssCategory = RssCategory
-    { categoryDomain_ :: Text
-    , categoryName_ :: Text
-    }
-  |]
+data RssCategory = RssCategory
+  { categoryDomain :: Text
+  , categoryName   :: Text
+  }
 
 deriving instance Eq RssCategory
 deriving instance Generic RssCategory
@@ -85,13 +98,11 @@ deriving instance Show RssCategory
 
 
 -- | The @\<enclosure\>@ element.
-declareLenses [d|
-  data RssEnclosure = RssEnclosure
-    { enclosureUrl_ :: URI
-    , enclosureLength_ :: Int
-    , enclosureType_ :: Text
-    }
-  |]
+data RssEnclosure = RssEnclosure
+  { enclosureUrl    :: RssURI
+  , enclosureLength :: Int
+  , enclosureType   :: Text
+  }
 
 deriving instance Eq RssEnclosure
 deriving instance Generic RssEnclosure
@@ -99,12 +110,10 @@ deriving instance Show RssEnclosure
 
 
 -- | The @\<source\>@ element.
-declareLenses [d|
-  data RssSource = RssSource
-    { sourceUrl_ :: URI
-    , sourceName_ :: Text
-    }
-  |]
+data RssSource = RssSource
+  { sourceUrl  :: RssURI
+  , sourceName :: Text
+  }
 
 deriving instance Eq RssSource
 deriving instance Generic RssSource
@@ -112,25 +121,23 @@ deriving instance Show RssSource
 
 
 -- | The @\<guid\>@ element.
-data RssGuid = GuidText Text | GuidUri URI
+data RssGuid = GuidText Text | GuidUri RssURI
   deriving(Eq, Generic, Show)
 
 
 -- | The @\<item\>@ element.
-declareLenses [d|
-  data RssItem = RssItem
-    { itemTitle_ :: Text
-    , itemLink_ :: Maybe URI
-    , itemDescription_ :: Text
-    , itemAuthor_ :: Text
-    , itemCategories_ :: [RssCategory]
-    , itemComments_ :: Maybe URI
-    , itemEnclosure_ :: [RssEnclosure]
-    , itemGuid_ :: Maybe RssGuid
-    , itemPubDate_ :: Maybe UTCTime
-    , itemSource_ :: Maybe RssSource
-    }
-  |]
+data RssItem = RssItem
+  { itemTitle       :: Text
+  , itemLink        :: Maybe RssURI
+  , itemDescription :: Text
+  , itemAuthor      :: Text
+  , itemCategories  :: [RssCategory]
+  , itemComments    :: Maybe RssURI
+  , itemEnclosure   :: [RssEnclosure]
+  , itemGuid        :: Maybe RssGuid
+  , itemPubDate     :: Maybe UTCTime
+  , itemSource      :: Maybe RssSource
+  }
 
 deriving instance Eq RssItem
 deriving instance Generic RssItem
@@ -138,14 +145,12 @@ deriving instance Show RssItem
 
 
 -- | The @\<textInput\>@ element.
-declareLenses [d|
-  data RssTextInput = RssTextInput
-    { textInputTitle_ :: Text
-    , textInputDescription_ :: Text
-    , textInputName_ :: Text
-    , textInputLink_ :: URI
-    }
-  |]
+data RssTextInput = RssTextInput
+  { textInputTitle       :: Text
+  , textInputDescription :: Text
+  , textInputName        :: Text
+  , textInputLink        :: RssURI
+  }
 
 deriving instance Eq RssTextInput
 deriving instance Generic RssTextInput
@@ -155,29 +160,25 @@ data CloudProtocol = ProtocolXmlRpc | ProtocolSoap | ProtocolHttpPost
   deriving(Eq, Generic, Show)
 
 -- | The @\<cloud\>@ element.
-declareLenses [d|
-  data RssCloud = RssCloud
-    { cloudUri_ :: URI
-    , cloudRegisterProcedure_ :: Text
-    , cloudProtocol_ :: CloudProtocol
-    }
-  |]
+data RssCloud = RssCloud
+  { cloudUri               :: RssURI
+  , cloudRegisterProcedure :: Text
+  , cloudProtocol          :: CloudProtocol
+  }
 
 deriving instance Eq RssCloud
 deriving instance Generic RssCloud
 deriving instance Show RssCloud
 
 -- | The @\<image\>@ element.
-declareLenses [d|
-  data RssImage = RssImage
-    { imageUri_ :: URI
-    , imageTitle_ :: Text
-    , imageLink_ :: URI
-    , imageWidth_ :: Maybe Int
-    , imageHeight_ :: Maybe Int
-    , imageDescription_ :: Text
-    }
-  |]
+data RssImage = RssImage
+  { imageUri         :: RssURI
+  , imageTitle       :: Text
+  , imageLink        :: RssURI
+  , imageWidth       :: Maybe Int
+  , imageHeight      :: Maybe Int
+  , imageDescription :: Text
+  }
 
 deriving instance Eq RssImage
 deriving instance Generic RssImage
@@ -201,31 +202,29 @@ asDay :: MonadThrow m => Text -> m Day
 asDay t = maybe (throwM $ InvalidDay t) return . readMaybe $ unpack t
 
 -- | The @\<rss\>@ element.
-declareLenses [d|
-  data RssDocument = RssDocument
-    { documentVersion_ :: Version
-    , channelTitle_ :: Text
-    , channelLink_ :: URI
-    , channelDescription_ :: Text
-    , channelItems_ :: [RssItem]
-    , channelLanguage_ :: Text
-    , channelCopyright_ :: Text
-    , channelManagingEditor_ :: Text
-    , channelWebmaster_ :: Text
-    , channelPubDate_ :: Maybe UTCTime
-    , channelLastBuildDate_ :: Maybe UTCTime
-    , channelCategories_ :: [RssCategory]
-    , channelGenerator_ :: Text
-    , channelDocs_ :: Maybe URI
-    , channelCloud_ :: Maybe RssCloud
-    , channelTtl_ :: Maybe Int
-    , channelImage_ :: Maybe RssImage
-    , channelRating_ :: Text
-    , channelTextInput_ :: Maybe RssTextInput
-    , channelSkipHours_ :: Set Hour
-    , channelSkipDays_ :: Set Day
-    }
-  |]
+data RssDocument = RssDocument
+  { documentVersion       :: Version
+  , channelTitle          :: Text
+  , channelLink           :: RssURI
+  , channelDescription    :: Text
+  , channelItems          :: [RssItem]
+  , channelLanguage       :: Text
+  , channelCopyright      :: Text
+  , channelManagingEditor :: Text
+  , channelWebmaster      :: Text
+  , channelPubDate        :: Maybe UTCTime
+  , channelLastBuildDate  :: Maybe UTCTime
+  , channelCategories     :: [RssCategory]
+  , channelGenerator      :: Text
+  , channelDocs           :: Maybe RssURI
+  , channelCloud          :: Maybe RssCloud
+  , channelTtl            :: Maybe Int
+  , channelImage          :: Maybe RssImage
+  , channelRating         :: Text
+  , channelTextInput      :: Maybe RssTextInput
+  , channelSkipHours      :: Set Hour
+  , channelSkipDays       :: Set Day
+  }
 
 deriving instance Eq RssDocument
 deriving instance Generic RssDocument

@@ -17,118 +17,133 @@ module Text.RSS.Conduit.Render
   ) where
 
 -- {{{ Imports
+import           Text.RSS.Lens
 import           Text.RSS.Types
 
-import           Control.Lens.Getter
 import           Control.Monad
 
 import           Data.Conduit
 import           Data.Monoid
 import           Data.MonoTraversable
-import           Data.Set
-import           Data.Text              as Text
+import           Data.Set               (Set)
+import           Data.Text              as Text hiding (map)
+import           Data.Text.Encoding
 import           Data.Time.Clock
 import           Data.Time.LocalTime
 import           Data.Time.RFC822
 import           Data.Version
 import           Data.XML.Types
 
-import           Network.URI
+import           Lens.Simple
 
 import           Safe
 
 import           Text.XML.Stream.Render
+
+import           URI.ByteString
 -- }}}
 
 -- | Render the top-level @\<rss\>@ element.
 renderRssDocument :: (Monad m) => RssDocument -> Source m Event
-renderRssDocument d = tag "rss" (attr "version" . pack . showVersion $ d^.documentVersion_) $ do
-  textTag "title" $ d^.channelTitle_
-  textTag "link" . tshow $ d^.channelLink_
-  textTag "description" $ d^.channelDescription_
-  optionalTextTag "copyright" $ d^.channelCopyright_
-  optionalTextTag "language" $ d^.channelLanguage_
-  optionalTextTag "managingEditor" $ d^.channelManagingEditor_
-  optionalTextTag "webMaster" $ d^.channelWebmaster_
-  forM_ (d^.channelPubDate_) $ dateTag "pubDate"
-  forM_ (d^.channelLastBuildDate_) $ dateTag "lastBuildDate"
-  forM_ (d^.channelCategories_) renderRssCategory
-  optionalTextTag "generator" $ d^.channelGenerator_
-  forM_ (d^.channelDocs_) $ optionalTextTag "docs" . tshow
-  forM_ (d^.channelCloud_) renderRssCloud
-  forM_ (d^.channelTtl_) $ textTag "ttl" . tshow
-  forM_ (d^.channelImage_) renderRssImage
-  optionalTextTag "rating" $ d^.channelRating_
-  forM_ (d^.channelTextInput_) renderRssTextInput
-  renderRssSkipHours $ d^.channelSkipHours_
-  renderRssSkipDays $ d^.channelSkipDays_
+renderRssDocument d = tag "rss" (attr "version" . pack . showVersion $ d^.documentVersionL) $ do
+  textTag "title" $ d^.channelTitleL
+  textTag "link" $ decodeUtf8 $ withRssURI serializeURIRef' $ d^.channelLinkL
+  textTag "description" $ d^.channelDescriptionL
+  optionalTextTag "copyright" $ d^.channelCopyrightL
+  optionalTextTag "language" $ d^.channelLanguageL
+  optionalTextTag "managingEditor" $ d^.channelManagingEditorL
+  optionalTextTag "webMaster" $ d^.channelWebmasterL
+  forM_ (d^.channelPubDateL) $ dateTag "pubDate"
+  forM_ (d^.channelLastBuildDateL) $ dateTag "lastBuildDate"
+  forM_ (d^..channelCategoriesL) renderRssCategory
+  optionalTextTag "generator" $ d^.channelGeneratorL
+  forM_ (d^.channelDocsL) $ textTag "docs" . decodeUtf8 . withRssURI serializeURIRef'
+  forM_ (d^.channelCloudL) renderRssCloud
+  forM_ (d^.channelTtlL) $ textTag "ttl" . tshow
+  forM_ (d^.channelImageL) renderRssImage
+  optionalTextTag "rating" $ d^.channelRatingL
+  forM_ (d^.channelTextInputL) renderRssTextInput
+  renderRssSkipHours $ d^.channelSkipHoursL
+  renderRssSkipDays $ d^.channelSkipDaysL
 
 -- | Render an @\<item\>@ element.
 renderRssItem :: (Monad m) => RssItem -> Source m Event
 renderRssItem i = tag "item" mempty $ do
-  optionalTextTag "title" $ i^.itemTitle_
-  forM_ (i^.itemLink_) $ textTag "link" . tshow
-  optionalTextTag "description" $ i^.itemDescription_
-  optionalTextTag "author" $ i^.itemAuthor_
-  forM_ (i^.itemCategories_) renderRssCategory
-  forM_ (i^.itemComments_) $ textTag "comments" . tshow
-  forM_ (i^.itemEnclosure_) renderRssEnclosure
-  forM_ (i^.itemGuid_) renderRssGuid
-  forM_ (i^.itemPubDate_) $ dateTag "pubDate"
-  forM_ (i^.itemSource_) renderRssSource
+  optionalTextTag "title" $ i^.itemTitleL
+  forM_ (i^.itemLinkL) $ textTag "link" . decodeUtf8 . withRssURI serializeURIRef'
+  optionalTextTag "description" $ i^.itemDescriptionL
+  optionalTextTag "author" $ i^.itemAuthorL
+  forM_ (i^..itemCategoriesL) renderRssCategory
+  forM_ (i^.itemCommentsL) $ textTag "comments" . decodeUtf8 . withRssURI serializeURIRef'
+  forM_ (i^..itemEnclosureL) renderRssEnclosure
+  forM_ (i^.itemGuidL) renderRssGuid
+  forM_ (i^.itemPubDateL) $ dateTag "pubDate"
+  forM_ (i^.itemSourceL) renderRssSource
 
 -- | Render a @\<source\>@ element.
 renderRssSource :: (Monad m) => RssSource -> Source m Event
-renderRssSource s = tag "source" (attr "url" . tshow $ s^.sourceUrl_) . content $ s^.sourceName_
+renderRssSource s = tag "source" (attr "url" $ decodeUtf8 $ withRssURI serializeURIRef' $ s^.sourceUrlL) . content $ s^.sourceNameL
 
 -- | Render an @\<enclosure\>@ element.
 renderRssEnclosure :: (Monad m) => RssEnclosure -> Source m Event
 renderRssEnclosure e = tag "enclosure" attributes mempty where
-  attributes = attr "url" (tshow $ e^.enclosureUrl_)
-    <> attr "length" (tshow $ e^.enclosureLength_)
-    <> attr "type" (e^.enclosureType_)
+  attributes = attr "url" (decodeUtf8 $ withRssURI serializeURIRef' $ e^.enclosureUrlL)
+    <> attr "length" (tshow $ e^.enclosureLengthL)
+    <> attr "type" (e^.enclosureTypeL)
 
 -- | Render a @\<guid\>@ element.
 renderRssGuid :: (Monad m) => RssGuid -> Source m Event
-renderRssGuid (GuidUri u) = tag "guid" (attr "isPermaLink" "true") . content $ tshow u
+renderRssGuid (GuidUri u) = tag "guid" (attr "isPermaLink" "true") $ content $ decodeUtf8 $ withRssURI serializeURIRef' u
 renderRssGuid (GuidText t) = tag "guid" mempty $ content t
+
 
 -- | Render a @\<cloud\>@ element.
 renderRssCloud :: (Monad m) => RssCloud -> Source m Event
 renderRssCloud c = tag "cloud" attributes $ return () where
-  attributes = attr "domain" (pack domain)
-    <> attr "port" (pack $ tailDef "" port)
-    <> attr "path" (pack $ path ++ query ++ fragment)
-    <> attr "registerProcedure" (c^.cloudRegisterProcedure_)
-    <> attr "protocol" (describe $ c^.cloudProtocol_)
-  URI scheme authority path query fragment = c^.cloudUri_
-  domain = maybe "" (\a -> uriUserInfo a ++ uriRegName a) authority
-  port = maybe "" uriPort authority
+  attributes = attr "domain" domain
+    <> optionalAttr "port" port
+    <> attr "path" (path <> query <> fragment)
+    <> attr "registerProcedure" (c^.cloudRegisterProcedureL)
+    <> attr "protocol" (describe $ c^.cloudProtocolL)
+
+  renderUserInfo (Just (UserInfo a b)) = decodeUtf8 a <> ":" <> decodeUtf8 b <> "@"
+  renderUserInfo _ = ""
+  renderHost (Host h) = decodeUtf8 h
+  renderQuery (Query query) = case intercalate "&" $ map (\(a,b) -> decodeUtf8 a <> "=" <> decodeUtf8 b) query of
+    "" -> ""
+    x -> "?" <> x
+
+  domain = maybe "" (\a -> renderUserInfo (authorityUserInfo a) <> renderHost (authorityHost a)) $ withRssURI (view authorityL) $ c^.cloudUriL
+  port = fmap (pack . show . portNumber) $ authorityPort =<< withRssURI (view authorityL) (c^.cloudUriL)
+  path = decodeUtf8 $ withRssURI (view pathL) $ c^.cloudUriL
+  query = renderQuery $ withRssURI (view queryL) $ c^.cloudUriL
+  fragment = maybe "" decodeUtf8 $ withRssURI (view fragmentL) $ c^.cloudUriL
+
   describe ProtocolXmlRpc = "xml-rpc"
   describe ProtocolSoap = "soap"
   describe ProtocolHttpPost = "http-post"
 
 -- | Render a @\<category\>@ element.
 renderRssCategory :: (Monad m) => RssCategory -> Source m Event
-renderRssCategory c = tag "category" (attr "domain" $ c^.categoryDomain_) . content $ c^.categoryName_
+renderRssCategory c = tag "category" (attr "domain" $ c^.categoryDomainL) . content $ c^.categoryNameL
 
 -- | Render an @\<image\>@ element.
 renderRssImage :: (Monad m) => RssImage -> Source m Event
 renderRssImage i = tag "image" mempty $ do
-  textTag "uri" . tshow $ i^.imageUri_
-  textTag "title" $ i^.imageTitle_
-  textTag "link" . tshow $ i^.imageLink_
-  forM_ (i^.imageWidth_) $ textTag "height" . tshow
-  forM_ (i^.imageHeight_) $ textTag "width" . tshow
-  optionalTextTag "description" $ i^.imageDescription_
+  textTag "uri" $ decodeUtf8 $ withRssURI serializeURIRef' $ i^.imageUriL
+  textTag "title" $ i^.imageTitleL
+  textTag "link" $ decodeUtf8 $ withRssURI serializeURIRef' $ i^.imageLinkL
+  forM_ (i^.imageHeightL) $ textTag "height" . tshow
+  forM_ (i^.imageWidthL) $ textTag "width" . tshow
+  optionalTextTag "description" $ i^.imageDescriptionL
 
 -- | Render a @\<textInput\>@ element.
 renderRssTextInput :: (Monad m) => RssTextInput -> Source m Event
 renderRssTextInput t = tag "textInput" mempty $ do
-  textTag "title" $ t^.textInputTitle_
-  textTag "description" $ t^.textInputDescription_
-  textTag "name" $ t^.textInputName_
-  textTag "link" . tshow $ t^.textInputLink_
+  textTag "title" $ t^.textInputTitleL
+  textTag "description" $ t^.textInputDescriptionL
+  textTag "name" $ t^.textInputNameL
+  textTag "link" $ decodeUtf8 $ withRssURI serializeURIRef' $ t^.textInputLinkL
 
 -- | Render a @\<skipDays\>@ element.
 renderRssSkipDays :: (Monad m) => Set Day -> Source m Event
