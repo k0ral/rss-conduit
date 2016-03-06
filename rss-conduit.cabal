@@ -1,21 +1,19 @@
 name:                rss-conduit
 version:             0.1.0.0
 synopsis:            Streaming parser/renderer for the RSS 2.0 standard.
-description:
-  This library implements the RSS 2.0 syndication format (<http://cyber.law.harvard.edu/rss/rss.html>) as a 'conduit' parser/renderer.
+description:         Cf README file.
 license:             OtherLicense
 license-file:        LICENSE
 author:              koral
 maintainer:          koral att mailoo dott org
--- copyright:
 category:            XML, Conduit
 build-type:          Simple
--- extra-source-files:
+extra-source-files:  README.md
 cabal-version:       >=1.10
 
 source-repository head
-    type:     git
-    location: git://github.com/k0ral/rss-conduit.git
+  type:     git
+  location: git://github.com/k0ral/rss-conduit.git
 
 library
   exposed-modules:
