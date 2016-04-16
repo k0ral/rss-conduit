@@ -188,6 +188,7 @@ itemCase = testCase "<item> element" $ do
                 , "<link>http://www.example.com/blog/post/1</link>"
                 , "<guid isPermaLink=\"false\">7bd204c6-1655-4c27-aeee-53f933c5395f</guid>"
                 , "<pubDate>Sun, 06 Sep 2009 16:20:00 +0000</pubDate>"
+                , "<sometag>Some content in unknown tag, should be ignored.</sometag>"
                 , "</item>"
                 ]
         link = RssURI (URI (Scheme "http") (Just (Authority Nothing (Host "www.example.com") Nothing)) "/blog/post/1" (Query []) Nothing)

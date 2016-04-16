@@ -224,6 +224,7 @@ rssItem = named "Rss <item> element" $ tagIgnoreAttrs "item" $ do
                        , ItemGuid <$> rssGuid
                        , ItemPubDate <$> tagDate "pubDate"
                        , ItemSource <$> rssSource
+                       , ItemUnknown <$ unknownTag
                        ]
 
 
