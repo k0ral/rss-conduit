@@ -1,4 +1,4 @@
-# atom-conduit
+# rss-conduit
 
 This [Haskell][hsk] library implements a streaming parser/renderer for the [RSS 2.0 syndication format][rss], based on [conduit][cdt]s.
 
