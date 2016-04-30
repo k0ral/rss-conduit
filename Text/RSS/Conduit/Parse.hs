@@ -246,7 +246,7 @@ rssDocument = named "RSS <rss> element" $ tagName' "rss" attributes $ \version -
   flip foldM p $ RssDocument version
     <$> handlesM _ChannelTitle (lastRequired "Missing <title> element.")
     <*> handlesM _ChannelLink (lastRequired "Missing <link> element.")
-    <*> handlesM _ChannelDescription (lastRequired "Missing <description> element.")
+    <*> generalize (handles _ChannelDescription $ lastDef "")  -- Lenient
     <*> generalize (handles _ChannelItem list)
     <*> generalize (handles _ChannelLanguage $ lastDef "")
     <*> generalize (handles _ChannelCopyright $ lastDef "")
