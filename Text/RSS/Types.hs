@@ -78,6 +78,13 @@ instance Eq RssURI where
   RssURI a@URI{} == RssURI b@URI{} = a == b
   RssURI a@RelativeRef{} == RssURI b@RelativeRef{} = a == b
   _ == _ = False
+
+instance Ord RssURI where
+  RssURI a@URI{} `compare` RssURI b@URI{} = a `compare` b
+  RssURI a@RelativeRef{} `compare` RssURI b@RelativeRef{} = a `compare` b
+  RssURI a@RelativeRef{} `compare` RssURI b@URI{} = LT
+  _ `compare` _ = GT
+
 instance Show RssURI where
   show (RssURI a@URI{}) = show a
   show (RssURI a@RelativeRef{}) = show a
@@ -94,6 +101,7 @@ data RssCategory = RssCategory
 
 deriving instance Eq RssCategory
 deriving instance Generic RssCategory
+deriving instance Ord RssCategory
 deriving instance Show RssCategory
 
 
@@ -106,6 +114,7 @@ data RssEnclosure = RssEnclosure
 
 deriving instance Eq RssEnclosure
 deriving instance Generic RssEnclosure
+deriving instance Ord RssEnclosure
 deriving instance Show RssEnclosure
 
 
@@ -117,12 +126,13 @@ data RssSource = RssSource
 
 deriving instance Eq RssSource
 deriving instance Generic RssSource
+deriving instance Ord RssSource
 deriving instance Show RssSource
 
 
 -- | The @\<guid\>@ element.
 data RssGuid = GuidText Text | GuidUri RssURI
-  deriving(Eq, Generic, Show)
+  deriving(Eq, Generic, Ord, Show)
 
 
 -- | The @\<item\>@ element.
@@ -141,6 +151,7 @@ data RssItem = RssItem
 
 deriving instance Eq RssItem
 deriving instance Generic RssItem
+deriving instance Ord RssItem
 deriving instance Show RssItem
 
 
@@ -154,10 +165,11 @@ data RssTextInput = RssTextInput
 
 deriving instance Eq RssTextInput
 deriving instance Generic RssTextInput
+deriving instance Ord RssTextInput
 deriving instance Show RssTextInput
 
 data CloudProtocol = ProtocolXmlRpc | ProtocolSoap | ProtocolHttpPost
-  deriving(Eq, Generic, Show)
+  deriving(Eq, Generic, Ord, Show)
 
 -- | The @\<cloud\>@ element.
 data RssCloud = RssCloud
@@ -168,6 +180,7 @@ data RssCloud = RssCloud
 
 deriving instance Eq RssCloud
 deriving instance Generic RssCloud
+deriving instance Ord RssCloud
 deriving instance Show RssCloud
 
 -- | The @\<image\>@ element.
@@ -182,6 +195,7 @@ data RssImage = RssImage
 
 deriving instance Eq RssImage
 deriving instance Generic RssImage
+deriving instance Ord RssImage
 deriving instance Show RssImage
 
 
@@ -228,4 +242,5 @@ data RssDocument = RssDocument
 
 deriving instance Eq RssDocument
 deriving instance Generic RssDocument
+deriving instance Ord RssDocument
 deriving instance Show RssDocument
