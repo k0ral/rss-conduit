@@ -1,5 +1,5 @@
 name:                rss-conduit
-version:             0.2.0.1
+version:             0.2.0.2
 synopsis:            Streaming parser/renderer for the RSS 2.0 standard.
 description:         Cf README file.
 license:             OtherLicense
