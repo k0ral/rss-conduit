@@ -111,7 +111,7 @@ renderRssCloud c = tag "cloud" attributes $ return () where
   renderHost (Host h) = decodeUtf8 h
   renderQuery (Query query) = case intercalate "&" $ map (\(a,b) -> decodeUtf8 a <> "=" <> decodeUtf8 b) query of
     "" -> ""
-    x -> "?" <> x
+    x  -> "?" <> x
 
   domain = maybe "" (\a -> renderUserInfo (authorityUserInfo a) <> renderHost (authorityHost a)) $ withRssURI (view authorityL) $ c^.cloudUriL
   port = fmap (pack . show . portNumber) $ authorityPort =<< withRssURI (view authorityL) (c^.cloudUriL)
@@ -119,8 +119,8 @@ renderRssCloud c = tag "cloud" attributes $ return () where
   query = renderQuery $ withRssURI (view queryL) $ c^.cloudUriL
   fragment = maybe "" decodeUtf8 $ withRssURI (view fragmentL) $ c^.cloudUriL
 
-  describe ProtocolXmlRpc = "xml-rpc"
-  describe ProtocolSoap = "soap"
+  describe ProtocolXmlRpc   = "xml-rpc"
+  describe ProtocolSoap     = "soap"
   describe ProtocolHttpPost = "http-post"
 
 -- | Render a @\<category\>@ element.
@@ -130,7 +130,7 @@ renderRssCategory c = tag "category" (attr "domain" $ c^.categoryDomainL) . cont
 -- | Render an @\<image\>@ element.
 renderRssImage :: (Monad m) => RssImage -> Source m Event
 renderRssImage i = tag "image" mempty $ do
-  textTag "uri" $ decodeUtf8 $ withRssURI serializeURIRef' $ i^.imageUriL
+  textTag "url" $ decodeUtf8 $ withRssURI serializeURIRef' $ i^.imageUriL
   textTag "title" $ i^.imageTitleL
   textTag "link" $ decodeUtf8 $ withRssURI serializeURIRef' $ i^.imageLinkL
   forM_ (i^.imageHeightL) $ textTag "height" . tshow

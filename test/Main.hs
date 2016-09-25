@@ -4,15 +4,13 @@
 -- {{{ Imports
 import           Arbitrary
 
-import           Control.Monad.Catch.Pure
+import           Control.Exception.Safe       as Exception
 import           Control.Monad.Trans.Resource
 
 import           Data.Char
 import           Data.Conduit
 import           Data.Conduit.Binary
 import           Data.Conduit.List
-import           Data.Conduit.Parser
-import           Data.Conduit.Parser.XML      as XML
 import           Data.Default
 import           Data.Version
 
@@ -24,11 +22,11 @@ import           Test.Tasty
 import           Test.Tasty.HUnit
 import           Test.Tasty.QuickCheck
 
-import           Text.Parser.Combinators
 import           Text.RSS.Conduit.Parse       as Parser
 import           Text.RSS.Conduit.Render      as Renderer
 import           Text.RSS.Lens
 import           Text.RSS.Types
+import           Text.XML.Stream.Parse        as XML hiding (choose)
 import           Text.XML.Stream.Render
 
 import           URI.ByteString
@@ -72,7 +70,7 @@ properties = testGroup "Properties"
 
 skipHoursCase :: TestTree
 skipHoursCase = testCase "<skipHours> element" $ do
-  result <- runResourceT . runConduit $ sourceList input =$= XML.parseText def =$= runConduitParser rssSkipHours
+  result <- runResourceT . runConduit $ sourceList input =$= XML.parseText' def =$= force "ERROR" rssSkipHours
   result @?= [Hour 0, Hour 9, Hour 18, Hour 21]
   where input = [ "<skipHours>"
                 , "<hour>21</hour>"
@@ -85,7 +83,7 @@ skipHoursCase = testCase "<skipHours> element" $ do
 
 skipDaysCase :: TestTree
 skipDaysCase = testCase "<skipDays> element" $ do
-  result <- runResourceT . runConduit $ sourceList input =$= XML.parseText def =$= runConduitParser rssSkipDays
+  result <- runResourceT . runConduit $ sourceList input =$= XML.parseText' def =$= force "ERROR" rssSkipDays
   result @?= [Monday, Saturday, Friday]
   where input = [ "<skipDays>"
                 , "<day>Monday</day>"
@@ -97,7 +95,7 @@ skipDaysCase = testCase "<skipDays> element" $ do
 
 textInputCase :: TestTree
 textInputCase = testCase "<textInput> element" $ do
-  result <- runResourceT . runConduit $ sourceList input =$= XML.parseText def =$= runConduitParser rssTextInput
+  result <- runResourceT . runConduit $ sourceList input =$= XML.parseText' def =$= force "ERROR" rssTextInput
   result^.textInputTitleL @?= "Title"
   result^.textInputDescriptionL @?= "Description"
   result^.textInputNameL @?= "Name"
@@ -112,7 +110,7 @@ textInputCase = testCase "<textInput> element" $ do
 
 imageCase :: TestTree
 imageCase = testCase "<image> element" $ do
-  result <- runResourceT . runConduit $ sourceList input =$= XML.parseText def =$= runConduitParser rssImage
+  result <- runResourceT . runConduit $ sourceList input =$= XML.parseText' def =$= force "ERROR" rssImage
   result^.imageUriL @?= RssURI (URI (Scheme "http") (Just (Authority Nothing (Host "image.ext") Nothing)) "" (Query []) Nothing)
   result^.imageTitleL @?= "Title"
   result^.imageLinkL @?= RssURI (URI (Scheme "http") (Just (Authority Nothing (Host "link.ext") Nothing)) "" (Query []) Nothing)
@@ -120,18 +118,20 @@ imageCase = testCase "<image> element" $ do
   result^.imageHeightL @?= Just 200
   result^.imageDescriptionL @?= "Description"
   where input = [ "<image>"
-                , "<uri>http://image.ext</uri>"
+                , "<url>http://image.ext</url>"
                 , "<title>Title</title>"
+                , "<ignored>Ignored</ignored>"
                 , "<link>http://link.ext</link>"
                 , "<width>100</width>"
                 , "<height>200</height>"
                 , "<description>Description</description>"
+                , "<ignored>Ignored</ignored>"
                 , "</image>"
                 ]
 
 categoryCase :: TestTree
 categoryCase = testCase "<category> element" $ do
-  result <- runResourceT . runConduit $ sourceList input =$= XML.parseText def =$= runConduitParser rssCategory
+  result <- runResourceT . runConduit $ sourceList input =$= XML.parseText' def =$= force "ERROR" rssCategory
   result @?= RssCategory "Domain" "Name"
   where input = [ "<category domain=\"Domain\">"
                 , "Name"
@@ -140,7 +140,7 @@ categoryCase = testCase "<category> element" $ do
 
 cloudCase :: TestTree
 cloudCase = testCase "<cloud> element" $ do
-  (result1, result2) <- runResourceT . runConduit $ sourceList input =$= XML.parseText def =$= runConduitParser ((,) <$> rssCloud <*> rssCloud)
+  result1:result2:_ <- runResourceT . runConduit $ sourceList input =$= XML.parseText' def =$= XML.many rssCloud
   result1 @?= RssCloud uri "pingMe" ProtocolSoap
   result2 @?= RssCloud uri "myCloud.rssPleaseNotify" ProtocolXmlRpc
   where input = [ "<cloud domain=\"rpc.sys.com\" port=\"80\" path=\"/RPC2\" registerProcedure=\"pingMe\" protocol=\"soap\"/>"
@@ -150,7 +150,7 @@ cloudCase = testCase "<cloud> element" $ do
 
 guidCase :: TestTree
 guidCase = testCase "<guid> element" $ do
-  result <- runResourceT . runConduit $ sourceList input =$= XML.parseText def =$= runConduitParser (some rssGuid)
+  result <- runResourceT . runConduit $ sourceList input =$= XML.parseText' def =$= XML.many rssGuid
   result @?= [GuidUri uri, GuidText "1", GuidText "2"]
   where input = [ "<guid isPermaLink=\"true\">//guid.ext</guid>"
                 , "<guid isPermaLink=\"false\">1</guid>"
@@ -160,7 +160,7 @@ guidCase = testCase "<guid> element" $ do
 
 enclosureCase :: TestTree
 enclosureCase = testCase "<enclosure> element" $ do
-  result <- runResourceT . runConduit $ sourceList input =$= XML.parseText def =$= runConduitParser rssEnclosure
+  result <- runResourceT . runConduit $ sourceList input =$= XML.parseText' def =$= force "ERROR" rssEnclosure
   result @?= RssEnclosure uri 12216320 "audio/mpeg"
   where input = [ "<enclosure url=\"http://www.scripting.com/mp3s/weatherReportSuite.mp3\" length=\"12216320\" type=\"audio/mpeg\" />"
                 ]
@@ -168,7 +168,7 @@ enclosureCase = testCase "<enclosure> element" $ do
 
 sourceCase :: TestTree
 sourceCase = testCase "<source> element" $ do
-  result <- runResourceT . runConduit $ sourceList input =$= XML.parseText def =$= runConduitParser rssSource
+  result <- runResourceT . runConduit $ sourceList input =$= XML.parseText' def =$= force "ERROR" rssSource
   result @?= RssSource uri "Tomalak's Realm"
   where input = [ "<source url=\"http://www.tomalak.org/links2.xml\">Tomalak's Realm</source>"
                 ]
@@ -176,7 +176,7 @@ sourceCase = testCase "<source> element" $ do
 
 itemCase :: TestTree
 itemCase = testCase "<item> element" $ do
-  result <- runResourceT . runConduit $ sourceList input =$= XML.parseText def =$= runConduitParser rssItem
+  result <- runResourceT . runConduit $ sourceList input =$= XML.parseText' def =$= force "ERROR" rssItem
   result^.itemTitleL @?= "Example entry"
   result^.itemLinkL @?= Just link
   result^.itemDescriptionL @?= "Here is some text containing an interesting description."
@@ -195,7 +195,7 @@ itemCase = testCase "<item> element" $ do
 
 documentCase :: TestTree
 documentCase = testCase "<rss> element" $ do
-  result <- runResourceT . runConduit $ sourceList input =$= XML.parseText def =$= runConduitParser rssDocument
+  result <- runResourceT . runConduit $ sourceList input =$= XML.parseText' def =$= force "ERROR" rssDocument
   result^.documentVersionL @?= Version [2] []
   result^.channelTitleL @?= "RSS Title"
   result^.channelDescriptionL @?= "This is an example of an RSS feed"
@@ -231,25 +231,25 @@ hlint = testCase "HLint check" $ do
 
 
 roundtripTextInputProperty :: TestTree
-roundtripTextInputProperty = testProperty "parse . render = id (RssTextInput)" $ \t -> either (const False) (t ==) (runIdentity . runCatchT . runConduit $ renderRssTextInput t =$= runConduitParser rssTextInput)
+roundtripTextInputProperty = testProperty "parse . render = id (RssTextInput)" $ \t -> either (const False) (t ==) (runConduit $ renderRssTextInput t =$= force "ERROR" rssTextInput)
 
 roundtripImageProperty :: TestTree
-roundtripImageProperty = testProperty "parse . render = id (RssImage)" $ \t -> either (const False) (t ==) (runIdentity . runCatchT . runConduit $ renderRssImage t =$= runConduitParser rssImage)
+roundtripImageProperty = testProperty "parse . render = id (RssImage)" $ \t -> either (const False) (t ==) (runConduit $ renderRssImage t =$= force "ERROR" rssImage)
 
 roundtripCategoryProperty :: TestTree
-roundtripCategoryProperty = testProperty "parse . render = id (RssCategory)" $ \t -> either (const False) (t ==) (runIdentity . runCatchT . runConduit $ renderRssCategory t =$= runConduitParser rssCategory)
+roundtripCategoryProperty = testProperty "parse . render = id (RssCategory)" $ \t -> either (const False) (t ==) (runConduit $ renderRssCategory t =$= force "ERROR" rssCategory)
 
 roundtripEnclosureProperty :: TestTree
-roundtripEnclosureProperty = testProperty "parse . render = id (RssEnclosure)" $ \t -> either (const False) (t ==) (runIdentity . runCatchT . runConduit $ renderRssEnclosure t =$= runConduitParser rssEnclosure)
+roundtripEnclosureProperty = testProperty "parse . render = id (RssEnclosure)" $ \t -> either (const False) (t ==) (runConduit $ renderRssEnclosure t =$= force "ERROR" rssEnclosure)
 
 roundtripSourceProperty :: TestTree
-roundtripSourceProperty = testProperty "parse . render = id (RssSource)" $ \t -> either (const False) (t ==) (runIdentity . runCatchT . runConduit $ renderRssSource t =$= runConduitParser rssSource)
+roundtripSourceProperty = testProperty "parse . render = id (RssSource)" $ \t -> either (const False) (t ==) (runConduit $ renderRssSource t =$= force "ERROR" rssSource)
 
 roundtripGuidProperty :: TestTree
-roundtripGuidProperty = testProperty "parse . render = id (RssGuid)" $ \t -> either (const False) (t ==) (runIdentity . runCatchT . runConduit $ renderRssGuid t =$= runConduitParser rssGuid)
+roundtripGuidProperty = testProperty "parse . render = id (RssGuid)" $ \t -> either (const False) (t ==) (runConduit $ renderRssGuid t =$= force "ERROR" rssGuid)
 
 roundtripItemProperty :: TestTree
-roundtripItemProperty = testProperty "parse . render = id (RssItem)" $ \t -> either (const False) (t ==) (runIdentity . runCatchT . runConduit $ renderRssItem t =$= runConduitParser rssItem)
+roundtripItemProperty = testProperty "parse . render = id (RssItem)" $ \t -> either (const False) (t ==) (runConduit $ renderRssItem t =$= force "ERROR" rssItem)
 
 
 letter = choose ('a', 'z')

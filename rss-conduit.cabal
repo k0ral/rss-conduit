@@ -25,20 +25,17 @@ library
   build-depends:
       base >= 4.8 && < 5
     , conduit
-    , conduit-parse
+    , conduit-combinators
     , containers
-    , exceptions
-    , foldl
+    , safe-exceptions
     , lens-simple
     , mono-traversable
-    , parsers
     , safe
     , text
     , time >= 1.5
     , timerep >= 2.0
     , uri-bytestring >= 0.2
     , xml-conduit >= 1.3
-    , xml-conduit-parse >= 0.3
     , xml-types
   default-language: Haskell2010
 
@@ -53,13 +50,11 @@ test-suite Tests
     , bytestring
     , conduit
     , conduit-extra
-    , conduit-parse
     , data-default
-    , exceptions
+    , safe-exceptions
     , hlint
     , lens-simple
     , mono-traversable
-    , parsers
     , QuickCheck
     , quickcheck-instances
     , resourcet
@@ -70,6 +65,5 @@ test-suite Tests
     , text
     , uri-bytestring >= 0.2
     , xml-conduit >= 1.3
-    , xml-conduit-parse >= 0.3
     , xml-types
   default-language: Haskell2010

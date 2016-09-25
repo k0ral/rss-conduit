@@ -35,15 +35,15 @@
 module Text.RSS.Types where
 
 -- {{{ Imports
-import           Control.Monad.Catch
+import           Control.Exception.Safe
 
 import           Data.Set
-import           Data.Text           hiding (map)
+import           Data.Text              hiding (map)
 import           Data.Time.Clock
-import           Data.Time.LocalTime ()
+import           Data.Time.LocalTime    ()
 import           Data.Version
 
-import           GHC.Generics        hiding ((:+:))
+import           GHC.Generics           hiding ((:+:))
 
 import           Text.Read
 
@@ -58,6 +58,8 @@ data RssException = InvalidBool Text
                   | InvalidURI URIParseError
                   | InvalidVersion Text
                   | InvalidProtocol Text
+                  | InvalidTime Text
+                  | MissingElement Text
 
 deriving instance Eq RssException
 deriving instance Show RssException
@@ -70,6 +72,8 @@ instance Exception RssException where
   displayException (InvalidURI t) = "Invalid URI reference: " ++ show t
   displayException (InvalidVersion t) = "Invalid version: " ++ unpack t
   displayException (InvalidProtocol t) = "Invalid Protocol: expected \"xml-rpc\", \"soap\" or \"http-post\", got \"" ++ unpack t ++ "\""
+  displayException (InvalidTime t) = "Invalid time: " ++ unpack t
+  displayException (MissingElement t) = "Missing element: " ++ unpack t
 
 
 data RssURI = forall a . RssURI (URIRef a)
@@ -86,7 +90,7 @@ instance Ord RssURI where
   _ `compare` _ = GT
 
 instance Show RssURI where
-  show (RssURI a@URI{}) = show a
+  show (RssURI a@URI{})         = show a
   show (RssURI a@RelativeRef{}) = show a
 
 withRssURI :: (forall a . URIRef a -> b) -> RssURI -> b
