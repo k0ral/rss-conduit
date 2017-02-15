@@ -84,10 +84,10 @@ asCloudProtocol t           = throwM $ InvalidProtocol t
 
 -- | Like 'tagName' but ignores the namespace.
 tagName' :: (MonadThrow m) => Text -> AttrParser a -> (a -> ConduitM Event o m b) -> ConduitM Event o m (Maybe b)
-tagName' t = tagPredicate (\n -> nameLocalName n == t)
+tagName' t = tag' (matching $ \n -> nameLocalName n == t)
 
 -- | Tag which content is a date-time that follows RFC 3339 format.
-tagDate :: (MonadThrow m) => Name -> ConduitM Event o m (Maybe UTCTime)
+tagDate :: (MonadThrow m) => NameMatcher a -> ConduitM Event o m (Maybe UTCTime)
 tagDate name = tagIgnoreAttrs name $ fmap zonedTimeToUTC $ do
   text <- content
   maybe (throw $ InvalidTime text) return $ parseTimeRFC822 text
@@ -123,7 +123,7 @@ makeTraversals ''TextInputPiece
 
 -- | Parse a @\<textInput\>@ element.
 rssTextInput :: (MonadThrow m) => ConduitM Event o m (Maybe RssTextInput)
-rssTextInput = tagIgnoreAttrs "textInput" $ (manyYield' (choose piece) =$= parser) <* many ignoreAllTreesContent where
+rssTextInput = tagIgnoreAttrs "textInput" $ (manyYield' (choose piece) =$= parser) <* many ignoreAnyTreeContent where
   parser = getZipConduit $ RssTextInput
     <$> ZipConduit (projectC _TextInputTitle =$= headRequiredC "Missing <title> element")
     <*> ZipConduit (projectC _TextInputDescription =$= headRequiredC "Missing <description> element")
@@ -144,7 +144,7 @@ makeTraversals ''ImagePiece
 
 -- | Parse an @\<image\>@ element.
 rssImage :: (MonadThrow m) => ConduitM Event o m (Maybe RssImage)
-rssImage = tagIgnoreAttrs "image" $ (manyYield' (choose piece) =$= parser) <* many ignoreAllTreesContent where
+rssImage = tagIgnoreAttrs "image" $ (manyYield' (choose piece) =$= parser) <* many ignoreAnyTreeContent where
   parser = getZipConduit $ RssImage
     <$> ZipConduit (projectC _ImageUri =$= headRequiredC "Missing <url> element")
     <*> ZipConduit (projectC _ImageTitle =$= headDefC "Unnamed image")  -- Lenient
@@ -205,7 +205,7 @@ makeTraversals ''ItemPiece
 
 -- | Parse an @\<item\>@ element.
 rssItem :: MonadThrow m => ConduitM Event o m (Maybe RssItem)
-rssItem = tagIgnoreAttrs "item" $ (manyYield' (choose piece) =$= parser) <* many ignoreAllTreesContent where
+rssItem = tagIgnoreAttrs "item" $ (manyYield' (choose piece) =$= parser) <* many ignoreAnyTreeContent where
   parser = getZipConduit $ RssItem
     <$> ZipConduit (projectC _ItemTitle =$= headDefC "")
     <*> ZipConduit (projectC _ItemLink =$= headC)
@@ -243,7 +243,7 @@ makeTraversals ''ChannelPiece
 
 -- | Parse an @\<rss\>@ element.
 rssDocument :: MonadThrow m => ConduitM Event o m (Maybe RssDocument)
-rssDocument = tagName' "rss" attributes $ \version -> force "Missing <channel>" $ tagIgnoreAttrs "channel" (manyYield' (choose piece) =$= parser version) <* many ignoreAllTreesContent where
+rssDocument = tagName' "rss" attributes $ \version -> force "Missing <channel>" $ tagIgnoreAttrs "channel" (manyYield' (choose piece) =$= parser version) <* many ignoreAnyTreeContent where
   parser version = getZipConduit $ RssDocument version
     <$> ZipConduit (projectC _ChannelTitle =$= headRequiredC "Missing <title> element")
     <*> ZipConduit (projectC _ChannelLink =$= headRequiredC "Missing <link> element")
