@@ -17,6 +17,7 @@ source-repository head
 
 library
   exposed-modules:
+    Text.RSS1.Conduit.Parse
     Text.RSS.Conduit.Parse
     Text.RSS.Conduit.Render
     Text.RSS.Lens
