@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs             #-}
 -- | 'Arbitrary' instances used by RSS types.
-module Arbitrary where
+module Arbitrary (module Arbitrary) where
 
 -- {{{ Imports
 import           Data.ByteString           (ByteString)
@@ -127,5 +127,5 @@ genTime = do
 
 instance Arbitrary RssURI where
   arbitrary = oneof [RssURI <$> (arbitrary :: Gen (URIRef Absolute)), RssURI <$> (arbitrary :: Gen (URIRef Relative))]
-  shrink (RssURI a@URI{}) = RssURI <$> shrink a
+  shrink (RssURI a@URI{})         = RssURI <$> shrink a
   shrink (RssURI a@RelativeRef{}) = RssURI <$> shrink a
