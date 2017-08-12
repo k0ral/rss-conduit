@@ -65,6 +65,7 @@ renderRssDocument d = tag "rss" (attr "version" . pack . showVersion $ d^.docume
   forM_ (d^.channelTextInputL) renderRssTextInput
   renderRssSkipHours $ d^.channelSkipHoursL
   renderRssSkipDays $ d^.channelSkipDaysL
+  forM_ (d^..channelItemsL) renderRssItem
 
 -- | Render an @\<item\>@ element.
 renderRssItem :: (Monad m) => RssItem -> Source m Event
