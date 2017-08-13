@@ -244,7 +244,7 @@ makeTraversals ''ChannelPiece
 -- | Parse an @\<rss\>@ element.
 rssDocument :: MonadThrow m => ConduitM Event o m (Maybe RssDocument)
 rssDocument = tagName' "rss" attributes $ \version -> force "Missing <channel>" $ tagIgnoreAttrs "channel" (manyYield' (choose piece) =$= parser version) <* many ignoreAnyTreeContent where
-  parser version = getZipConduit $ RssDocument version
+  parser version = getZipConduit $ RssDocument version [] -- NB: May want to parse attrs here. Unsure of the best way to approach this.
     <$> ZipConduit (projectC _ChannelTitle =$= headRequiredC "Missing <title> element")
     <*> ZipConduit (projectC _ChannelLink =$= headRequiredC "Missing <link> element")
     <*> ZipConduit (projectC _ChannelDescription =$= headDefC "")  -- Lenient
