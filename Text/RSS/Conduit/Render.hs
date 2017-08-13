@@ -72,11 +72,11 @@ renderRssDocument d = tag "rss" (attr "version" . pack . showVersion $ d^.docume
 renderRssItem :: (Monad m) => RssItem -> Source m Event
 renderRssItem i = tag "item" mempty $ do
   optionalTextTag "title" $ i^.itemTitleL
-  forM_ (i^.itemLinkL) $ textTag "link" . decodeUtf8 . withRssURI serializeURIRef'
+  forM_ (i^.itemLinkL) $ textTag "link" . renderRssURI
   optionalTextTag "description" $ i^.itemDescriptionL
   optionalTextTag "author" $ i^.itemAuthorL
   forM_ (i^..itemCategoriesL) renderRssCategory
-  forM_ (i^.itemCommentsL) $ textTag "comments" . decodeUtf8 . withRssURI serializeURIRef'
+  forM_ (i^.itemCommentsL) $ textTag "comments" . renderRssURI
   forM_ (i^..itemEnclosureL) renderRssEnclosure
   forM_ (i^.itemGuidL) renderRssGuid
   forM_ (i^.itemPubDateL) $ dateTag "pubDate"
@@ -84,18 +84,18 @@ renderRssItem i = tag "item" mempty $ do
 
 -- | Render a @\<source\>@ element.
 renderRssSource :: (Monad m) => RssSource -> Source m Event
-renderRssSource s = tag "source" (attr "url" $ decodeUtf8 $ withRssURI serializeURIRef' $ s^.sourceUrlL) . content $ s^.sourceNameL
+renderRssSource s = tag "source" (attr "url" $ renderRssURI $ s^.sourceUrlL) . content $ s^.sourceNameL
 
 -- | Render an @\<enclosure\>@ element.
 renderRssEnclosure :: (Monad m) => RssEnclosure -> Source m Event
 renderRssEnclosure e = tag "enclosure" attributes mempty where
-  attributes = attr "url" (decodeUtf8 $ withRssURI serializeURIRef' $ e^.enclosureUrlL)
+  attributes = attr "url" (renderRssURI $ e^.enclosureUrlL)
     <> attr "length" (tshow $ e^.enclosureLengthL)
     <> attr "type" (e^.enclosureTypeL)
 
 -- | Render a @\<guid\>@ element.
 renderRssGuid :: (Monad m) => RssGuid -> Source m Event
-renderRssGuid (GuidUri u) = tag "guid" (attr "isPermaLink" "true") $ content $ decodeUtf8 $ withRssURI serializeURIRef' u
+renderRssGuid (GuidUri u) = tag "guid" (attr "isPermaLink" "true") $ content $ renderRssURI u
 renderRssGuid (GuidText t) = tag "guid" mempty $ content t
 
 
@@ -132,9 +132,9 @@ renderRssCategory c = tag "category" (attr "domain" $ c^.categoryDomainL) . cont
 -- | Render an @\<image\>@ element.
 renderRssImage :: (Monad m) => RssImage -> Source m Event
 renderRssImage i = tag "image" mempty $ do
-  textTag "url" $ decodeUtf8 $ withRssURI serializeURIRef' $ i^.imageUriL
+  textTag "url" $ renderRssURI $ i^.imageUriL
   textTag "title" $ i^.imageTitleL
-  textTag "link" $ decodeUtf8 $ withRssURI serializeURIRef' $ i^.imageLinkL
+  textTag "link" $ renderRssURI $ i^.imageLinkL
   forM_ (i^.imageHeightL) $ textTag "height" . tshow
   forM_ (i^.imageWidthL) $ textTag "width" . tshow
   optionalTextTag "description" $ i^.imageDescriptionL
@@ -145,7 +145,7 @@ renderRssTextInput t = tag "textInput" mempty $ do
   textTag "title" $ t^.textInputTitleL
   textTag "description" $ t^.textInputDescriptionL
   textTag "name" $ t^.textInputNameL
-  textTag "link" $ decodeUtf8 $ withRssURI serializeURIRef' $ t^.textInputLinkL
+  textTag "link" $ renderRssURI $ t^.textInputLinkL
 
 -- | Render a @\<skipDays\>@ element.
 renderRssSkipDays :: (Monad m) => Set Day -> Source m Event
@@ -168,4 +168,7 @@ optionalTextTag name value = unless (onull value) $ textTag name value
 
 dateTag :: (Monad m) => Name -> UTCTime -> Source m Event
 dateTag name = tag name mempty . content . formatTimeRFC822 . utcToZonedTime utc
+
+renderRssURI :: RssURI -> Text
+renderRssURI = decodeUtf8 . withRssURI serializeURIRef'
 -- }}}
