@@ -210,6 +210,7 @@ data Rss1Document = Rss1Document Rss1Channel (Maybe RssImage) [RssItem] (Maybe R
 rss1ToRss2 :: Rss1Document -> RssDocument
 rss1ToRss2 (Rss1Document channel image items textInput) = RssDocument
   (Version [1] [])
+  []
   (channelTitle' channel)
   (channelLink' channel)
   (channelDescription' channel)
