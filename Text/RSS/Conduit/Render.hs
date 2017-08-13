@@ -45,27 +45,28 @@ import           URI.ByteString
 
 -- | Render the top-level @\<rss\>@ element.
 renderRssDocument :: (Monad m) => RssDocument -> Source m Event
-renderRssDocument d = tag "rss" (attr "version" . pack . showVersion $ d^.documentVersionL) $ do
-  textTag "title" $ d^.channelTitleL
-  textTag "link" $ decodeUtf8 $ withRssURI serializeURIRef' $ d^.channelLinkL
-  textTag "description" $ d^.channelDescriptionL
-  optionalTextTag "copyright" $ d^.channelCopyrightL
-  optionalTextTag "language" $ d^.channelLanguageL
-  optionalTextTag "managingEditor" $ d^.channelManagingEditorL
-  optionalTextTag "webMaster" $ d^.channelWebmasterL
-  forM_ (d^.channelPubDateL) $ dateTag "pubDate"
-  forM_ (d^.channelLastBuildDateL) $ dateTag "lastBuildDate"
-  forM_ (d^..channelCategoriesL) renderRssCategory
-  optionalTextTag "generator" $ d^.channelGeneratorL
-  forM_ (d^.channelDocsL) $ textTag "docs" . decodeUtf8 . withRssURI serializeURIRef'
-  forM_ (d^.channelCloudL) renderRssCloud
-  forM_ (d^.channelTtlL) $ textTag "ttl" . tshow
-  forM_ (d^.channelImageL) renderRssImage
-  optionalTextTag "rating" $ d^.channelRatingL
-  forM_ (d^.channelTextInputL) renderRssTextInput
-  renderRssSkipHours $ d^.channelSkipHoursL
-  renderRssSkipDays $ d^.channelSkipDaysL
-  forM_ (d^..channelItemsL) renderRssItem
+renderRssDocument d = tag "rss" (attr "version" . pack . showVersion $ d^.documentVersionL) $
+  tag "channel" mempty $ do
+    textTag "title" $ d^.channelTitleL
+    textTag "link" $ renderRssURI $ d^.channelLinkL
+    textTag "description" $ d^.channelDescriptionL
+    optionalTextTag "copyright" $ d^.channelCopyrightL
+    optionalTextTag "language" $ d^.channelLanguageL
+    optionalTextTag "managingEditor" $ d^.channelManagingEditorL
+    optionalTextTag "webMaster" $ d^.channelWebmasterL
+    forM_ (d^.channelPubDateL) $ dateTag "pubDate"
+    forM_ (d^.channelLastBuildDateL) $ dateTag "lastBuildDate"
+    forM_ (d^..channelCategoriesL) renderRssCategory
+    optionalTextTag "generator" $ d^.channelGeneratorL
+    forM_ (d^.channelDocsL) $ textTag "docs" . renderRssURI
+    forM_ (d^.channelCloudL) renderRssCloud
+    forM_ (d^.channelTtlL) $ textTag "ttl" . tshow
+    forM_ (d^.channelImageL) renderRssImage
+    optionalTextTag "rating" $ d^.channelRatingL
+    forM_ (d^.channelTextInputL) renderRssTextInput
+    renderRssSkipHours $ d^.channelSkipHoursL
+    renderRssSkipDays $ d^.channelSkipDaysL
+    forM_ (d^..channelItemsL) renderRssItem
 
 -- | Render an @\<item\>@ element.
 renderRssItem :: (Monad m) => RssItem -> Source m Event
