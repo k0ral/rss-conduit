@@ -149,11 +149,11 @@ renderRssTextInput t = tag "textInput" mempty $ do
 
 -- | Render a @\<skipDays\>@ element.
 renderRssSkipDays :: (Monad m) => Set Day -> Source m Event
-renderRssSkipDays s = tag "skipDays" mempty $ forM_ s $ textTag "day" . tshow
+renderRssSkipDays s = unless (onull s) $ tag "skipDays" mempty $ forM_ s $ textTag "day" . tshow
 
 -- | Render a @\<skipHours\>@ element.
 renderRssSkipHours :: (Monad m) => Set Hour -> Source m Event
-renderRssSkipHours s = tag "skipHour" mempty $ forM_ s $ textTag "hour" . tshow
+renderRssSkipHours s = unless (onull s) $ tag "skipHour" mempty $ forM_ s $ textTag "hour" . tshow
 
 
 -- {{{ Utils
