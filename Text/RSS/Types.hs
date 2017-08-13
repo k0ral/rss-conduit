@@ -37,6 +37,7 @@ module Text.RSS.Types where
 -- {{{ Imports
 import           Control.Exception.Safe
 
+import           Data.Semigroup
 import           Data.Set
 import           Data.Text              hiding (map)
 import           Data.Time.Clock
@@ -204,7 +205,16 @@ deriving instance Show RssImage
 
 
 newtype Hour = Hour Int
-  deriving(Eq, Generic, Ord, Show)
+  deriving(Eq, Generic, Ord, Read, Show)
+
+instance Bounded Hour where
+  minBound = Hour 0
+  maxBound = Hour 23
+
+instance Enum Hour where
+  fromEnum (Hour h) = fromEnum h
+  toEnum i = if i >= 0 && i < 24 then Hour i else error $ "Invalid hour: " <> show i
+
 
 -- | Smart constructor for 'Hour'
 asHour :: MonadThrow m => Int -> m Hour
@@ -213,7 +223,7 @@ asHour i
   | otherwise = throwM $ InvalidHour i
 
 data Day = Monday | Tuesday | Wednesday | Thursday | Friday | Saturday | Sunday
-  deriving(Enum, Eq, Generic, Ord, Read, Show)
+  deriving(Bounded, Enum, Eq, Generic, Ord, Read, Show)
 
 -- | Basic parser for 'Day'.
 asDay :: MonadThrow m => Text -> m Day
