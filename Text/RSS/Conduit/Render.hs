@@ -44,8 +44,10 @@ import           URI.ByteString
 -- }}}
 
 -- | Render the top-level @\<rss\>@ element.
-renderRssDocument :: (Monad m) => RssDocument -> Source m Event
-renderRssDocument d = tag "rss" (attr "version" . pack . showVersion $ d^.documentVersionL) $
+renderRssDocument :: (Monad m) => Attributes -> RssDocument -> Source m Event
+renderRssDocument userAttrs d = 
+  let attrs = (attr "version" . pack . showVersion $ d^.documentVersionL) <> userAttrs in
+  tag "rss" attrs $
   tag "channel" mempty $ do
     textTag "title" $ d^.channelTitleL
     textTag "link" $ renderRssURI $ d^.channelLinkL
