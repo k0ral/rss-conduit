@@ -48,6 +48,8 @@ import           GHC.Generics           hiding ((:+:))
 import           Text.Read
 
 import           URI.ByteString
+
+import           Text.XML               (Name)
 -- }}}
 
 
@@ -222,6 +224,7 @@ asDay t = maybe (throwM $ InvalidDay t) return . readMaybe $ unpack t
 -- | The @\<rss\>@ element.
 data RssDocument = RssDocument
   { documentVersion       :: Version
+  , documentAttributes    :: [(Name,Text)]
   , channelTitle          :: Text
   , channelLink           :: RssURI
   , channelDescription    :: Text

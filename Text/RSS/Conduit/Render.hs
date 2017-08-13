@@ -44,10 +44,8 @@ import           URI.ByteString
 -- }}}
 
 -- | Render the top-level @\<rss\>@ element.
-renderRssDocument :: (Monad m) => Attributes -> RssDocument -> Source m Event
-renderRssDocument userAttrs d = 
-  let attrs = (attr "version" . pack . showVersion $ d^.documentVersionL) <> userAttrs in
-  tag "rss" attrs $
+renderRssDocument :: (Monad m) => RssDocument -> Source m Event
+renderRssDocument d = tag "rss" attrs $
   tag "channel" mempty $ do
     textTag "title" $ d^.channelTitleL
     textTag "link" $ renderRssURI $ d^.channelLinkL
@@ -69,6 +67,9 @@ renderRssDocument userAttrs d =
     renderRssSkipHours $ d^.channelSkipHoursL
     renderRssSkipDays $ d^.channelSkipDaysL
     forM_ (d^..channelItemsL) renderRssItem
+  where
+  versionAttr = (attr "version" . pack . showVersion $ d^.documentVersionL)
+  attrs = versionAttr <> map attr (d^.documentAttributesL)
 
 -- | Render an @\<item\>@ element.
 renderRssItem :: (Monad m) => RssItem -> Source m Event
