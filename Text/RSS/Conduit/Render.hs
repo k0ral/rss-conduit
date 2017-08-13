@@ -69,7 +69,7 @@ renderRssDocument d = tag "rss" attrs $
     forM_ (d^..channelItemsL) renderRssItem
   where
   versionAttr = (attr "version" . pack . showVersion $ d^.documentVersionL)
-  attrs = versionAttr <> map attr (d^.documentAttributesL)
+  attrs = versionAttr <> map (uncurry attr) (d^.documentAttributesL)
 
 -- | Render an @\<item\>@ element.
 renderRssItem :: (Monad m) => RssItem -> Source m Event
