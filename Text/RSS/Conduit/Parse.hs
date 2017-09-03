@@ -1,7 +1,10 @@
+{-# LANGUAGE DataKinds          #-}
+{-# LANGUAGE FlexibleContexts   #-}
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE RankNTypes         #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TemplateHaskell    #-}
+{-# LANGUAGE TypeOperators      #-}
 -- | Streaming parsers for the RSS 2.0 standard.
 module Text.RSS.Conduit.Parse
   ( -- * Top-level
@@ -20,16 +23,16 @@ module Text.RSS.Conduit.Parse
   ) where
 
 -- {{{ Imports
+import           Text.RSS.Extensions
 import           Text.RSS.Types
 
 import           Conduit                      hiding (throwM)
-
 import           Control.Applicative          hiding (many)
 import           Control.Exception.Safe       as Exception
 import           Control.Monad                hiding (foldM)
 import           Control.Monad.Fix
-
 import           Data.Conduit
+import           Data.List.NonEmpty           (NonEmpty (..), nonEmpty)
 import           Data.Maybe
 import           Data.Monoid
 import           Data.MonoTraversable
@@ -41,20 +44,16 @@ import           Data.Time.LocalTime
 import           Data.Time.RFC822
 import           Data.Version
 import           Data.XML.Types
-
 import           Lens.Simple
-
 import           Prelude                      hiding (last, lookup)
-
 import           Text.ParserCombinators.ReadP (readP_to_S)
 import           Text.Read                    (readMaybe)
 import           Text.XML.Stream.Parse
-
 import           URI.ByteString
 -- }}}
 
 -- {{{ Util
-asRssURI :: (MonadThrow m) => Text -> m RssURI
+asRssURI :: MonadThrow m => Text -> m RssURI
 asRssURI t = case (parseURI' t, parseRelativeRef' t) of
   (Right u, _) -> return $ RssURI u
   (_, Right u) -> return $ RssURI u
@@ -122,7 +121,7 @@ data TextInputPiece = TextInputTitle Text | TextInputDescription Text
 makeTraversals ''TextInputPiece
 
 -- | Parse a @\<textInput\>@ element.
-rssTextInput :: (MonadThrow m) => ConduitM Event o m (Maybe RssTextInput)
+rssTextInput :: MonadThrow m => ConduitM Event o m (Maybe RssTextInput)
 rssTextInput = tagIgnoreAttrs "textInput" $ (manyYield' (choose piece) =$= parser) <* many ignoreAnyTreeContent where
   parser = getZipConduit $ RssTextInput
     <$> ZipConduit (projectC _TextInputTitle =$= headRequiredC "Missing <title> element")
@@ -199,12 +198,14 @@ rssSource = tagName' "source" attributes handler where
 data ItemPiece = ItemTitle Text | ItemLink RssURI | ItemDescription Text
                | ItemAuthor Text | ItemCategory RssCategory | ItemComments RssURI
                | ItemEnclosure RssEnclosure | ItemGuid RssGuid | ItemPubDate UTCTime
-               | ItemSource RssSource
+               | ItemSource RssSource | ItemOther (NonEmpty Event)
 
 makeTraversals ''ItemPiece
 
 -- | Parse an @\<item\>@ element.
-rssItem :: MonadThrow m => ConduitM Event o m (Maybe RssItem)
+--
+-- RSS extensions are automatically parsed based on the expected result type.
+rssItem :: ParseRssExtensions e => MonadThrow m => ConduitM Event o m (Maybe (RssItem e))
 rssItem = tagIgnoreAttrs "item" $ (manyYield' (choose piece) =$= parser) <* many ignoreAnyTreeContent where
   parser = getZipConduit $ RssItem
     <$> ZipConduit (projectC _ItemTitle =$= headDefC "")
@@ -217,6 +218,7 @@ rssItem = tagIgnoreAttrs "item" $ (manyYield' (choose piece) =$= parser) <* many
     <*> ZipConduit (projectC _ItemGuid =$= headC)
     <*> ZipConduit (projectC _ItemPubDate =$= headC)
     <*> ZipConduit (projectC _ItemSource =$= headC)
+    <*> ZipConduit (projectC _ItemOther =$= concatC =$= parseRssItemExtensions)
   piece = [ fmap ItemTitle <$> tagIgnoreAttrs "title" content
           , fmap ItemLink <$> tagIgnoreAttrs "link" (content >>= asRssURI)
           , fmap ItemDescription <$> tagIgnoreAttrs "description" content
@@ -227,22 +229,25 @@ rssItem = tagIgnoreAttrs "item" $ (manyYield' (choose piece) =$= parser) <* many
           , fmap ItemGuid <$> rssGuid
           , fmap ItemPubDate <$> tagDate "pubDate"
           , fmap ItemSource <$> rssSource
+          , fmap ItemOther . nonEmpty <$> (void takeAnyTreeContent =$= sinkList)
           ]
 
 
-data ChannelPiece = ChannelTitle Text | ChannelLink RssURI | ChannelDescription Text
-                  | ChannelItem RssItem | ChannelLanguage Text | ChannelCopyright Text
-                  | ChannelManagingEditor Text | ChannelWebmaster Text | ChannelPubDate UTCTime
-                  | ChannelLastBuildDate UTCTime | ChannelCategory RssCategory
-                  | ChannelGenerator Text | ChannelDocs RssURI | ChannelCloud RssCloud
-                  | ChannelTtl Int | ChannelImage RssImage | ChannelRating Text
-                  | ChannelTextInput RssTextInput | ChannelSkipHours (Set Hour)
-                  | ChannelSkipDays (Set Day)
+data ChannelPiece e = ChannelTitle Text | ChannelLink RssURI | ChannelDescription Text
+                    | ChannelItem (RssItem e) | ChannelLanguage Text | ChannelCopyright Text
+                    | ChannelManagingEditor Text | ChannelWebmaster Text | ChannelPubDate UTCTime
+                    | ChannelLastBuildDate UTCTime | ChannelCategory RssCategory
+                    | ChannelGenerator Text | ChannelDocs RssURI | ChannelCloud RssCloud
+                    | ChannelTtl Int | ChannelImage RssImage | ChannelRating Text
+                    | ChannelTextInput RssTextInput | ChannelSkipHours (Set Hour)
+                    | ChannelSkipDays (Set Day) | ChannelOther (NonEmpty Event)
 
 makeTraversals ''ChannelPiece
 
 -- | Parse an @\<rss\>@ element.
-rssDocument :: MonadThrow m => ConduitM Event o m (Maybe RssDocument)
+--
+-- RSS extensions are automatically parsed based on the expected result type.
+rssDocument :: ParseRssExtensions e => MonadThrow m => ConduitM Event o m (Maybe (RssDocument e))
 rssDocument = tagName' "rss" attributes $ \version -> force "Missing <channel>" $ tagIgnoreAttrs "channel" (manyYield' (choose piece) =$= parser version) <* many ignoreAnyTreeContent where
   parser version = getZipConduit $ RssDocument version
     <$> ZipConduit (projectC _ChannelTitle =$= headRequiredC "Missing <title> element")
@@ -265,6 +270,7 @@ rssDocument = tagName' "rss" attributes $ \version -> force "Missing <channel>" 
     <*> ZipConduit (projectC _ChannelTextInput =$= headC)
     <*> ZipConduit (projectC _ChannelSkipHours =$= headDefC mempty)
     <*> ZipConduit (projectC _ChannelSkipDays =$= headDefC mempty)
+    <*> ZipConduit (projectC _ChannelOther =$= concatC =$= parseRssChannelExtensions)
   piece = [ fmap ChannelTitle <$> tagIgnoreAttrs "title" content
           , fmap ChannelLink <$> tagIgnoreAttrs "link" (content >>= asRssURI)
           , fmap ChannelDescription <$> tagIgnoreAttrs "description" content
@@ -285,5 +291,6 @@ rssDocument = tagName' "rss" attributes $ \version -> force "Missing <channel>" 
           , fmap ChannelTextInput <$> rssTextInput
           , fmap ChannelSkipHours <$> rssSkipHours
           , fmap ChannelSkipDays <$> rssSkipDays
+          , fmap ChannelOther . nonEmpty <$> (void takeAnyTreeContent =$= sinkList)
           ]
   attributes = (requireAttr "version" >>= asVersion) <* ignoreAttrs

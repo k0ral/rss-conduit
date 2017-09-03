@@ -21,11 +21,11 @@ $(makeLensesBy
    in f)
   ''RssItem)
 
-itemCategoriesL :: Traversal' RssItem RssCategory
+itemCategoriesL :: Traversal' (RssItem e) RssCategory
 itemCategoriesL inj a@RssItem { itemCategories = c } = (\x -> a { itemCategories = c }) <$> traverse inj c
 {-# INLINE itemCategoriesL #-}
 
-itemEnclosureL :: Traversal' RssItem RssEnclosure
+itemEnclosureL :: Traversal' (RssItem e) RssEnclosure
 itemEnclosureL inj a@RssItem { itemEnclosure = e } = (\x -> a { itemEnclosure = e }) <$> traverse inj e
 {-# INLINE itemEnclosureL #-}
 
@@ -39,10 +39,10 @@ $(makeLensesBy
   in f)
   ''RssDocument)
 
-channelItemsL :: Traversal' RssDocument RssItem
+channelItemsL :: Traversal' (RssDocument e) (RssItem e)
 channelItemsL inj a@RssDocument { channelItems = i } = (\x -> a { channelItems = i }) <$> traverse inj i
 {-# INLINE channelItemsL #-}
 
-channelCategoriesL :: Traversal' RssDocument RssCategory
+channelCategoriesL :: Traversal' (RssDocument e) RssCategory
 channelCategoriesL inj a@RssDocument { channelCategories = c } = (\x -> a { channelCategories = c }) <$> traverse inj c
 {-# INLINE channelCategoriesL #-}

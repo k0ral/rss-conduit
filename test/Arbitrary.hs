@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds         #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs             #-}
 -- | 'Arbitrary' instances used by RSS types.
@@ -14,6 +15,7 @@ import           Data.Text                 (Text, find, pack)
 import           Data.Text.Encoding
 import           Data.Time.Clock
 import           Data.Version
+import           Data.Vinyl.Core
 
 import           GHC.Generics
 
@@ -95,7 +97,7 @@ instance Arbitrary RssGuid where
 instance Arbitrary RssImage where
   arbitrary = RssImage <$> arbitrary <*> (pack <$> listOf genAlphaNum) <*> arbitrary <*> fmap (fmap abs) arbitrary <*> fmap (fmap abs) arbitrary <*> (pack <$> listOf genAlphaNum)
 
-instance Arbitrary RssItem where
+instance Arbitrary (RssItem '[]) where
   arbitrary = RssItem
     <$> (pack <$> listOf genAlphaNum)
     <*> arbitrary
@@ -107,6 +109,7 @@ instance Arbitrary RssItem where
     <*> arbitrary
     <*> oneof [Just <$> genTime, pure Nothing]
     <*> arbitrary
+    <*> pure (RssItemExtensions RNil)
 
 instance Arbitrary RssSource where
   arbitrary = RssSource <$> arbitrary <*> (pack <$> listOf genAlphaNum)
@@ -114,6 +117,37 @@ instance Arbitrary RssSource where
 instance Arbitrary RssTextInput where
   arbitrary = RssTextInput <$> (pack <$> listOf genAlphaNum) <*> (pack <$> listOf genAlphaNum) <*> (pack <$> listOf genAlphaNum) <*> arbitrary
 
+instance Arbitrary (RssDocument '[]) where
+  arbitrary = RssDocument
+    <$> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> vectorOf 1 arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> oneof [Just <$> genTime, pure Nothing]
+    <*> oneof [Just <$> genTime, pure Nothing]
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> pure (RssChannelExtensions RNil)
+
+instance Arbitrary Day where
+  arbitrary = arbitraryBoundedEnum
+  shrink = genericShrink
+
+instance Arbitrary Hour where
+  arbitrary = Hour <$> suchThat arbitrary (\x -> x >= 0 && x < 24)
 
 -- | Alpha-numeric generator.
 genAlphaNum :: Gen Char

@@ -44,7 +44,9 @@ import           URI.ByteString
 -- }}}
 
 -- | Render the top-level @\<rss\>@ element.
-renderRssDocument :: (Monad m) => RssDocument -> Source m Event
+--
+-- __Note__: RSS extensions are NOT rendered.
+renderRssDocument :: Monad m => RssDocument a -> Source m Event
 renderRssDocument d = tag "rss" (attr "version" . pack . showVersion $ d^.documentVersionL) $
   tag "channel" mempty $ do
     textTag "title" $ d^.channelTitleL
@@ -69,7 +71,9 @@ renderRssDocument d = tag "rss" (attr "version" . pack . showVersion $ d^.docume
     forM_ (d^..channelItemsL) renderRssItem
 
 -- | Render an @\<item\>@ element.
-renderRssItem :: (Monad m) => RssItem -> Source m Event
+--
+-- __Note__: RSS extensions are NOT rendered.
+renderRssItem :: Monad m => RssItem e -> Source m Event
 renderRssItem i = tag "item" mempty $ do
   optionalTextTag "title" $ i^.itemTitleL
   forM_ (i^.itemLinkL) $ textTag "link" . renderRssURI
@@ -100,7 +104,7 @@ renderRssGuid (GuidText t) = tag "guid" mempty $ content t
 
 
 -- | Render a @\<cloud\>@ element.
-renderRssCloud :: (Monad m) => RssCloud -> Source m Event
+renderRssCloud :: Monad m => RssCloud -> Source m Event
 renderRssCloud c = tag "cloud" attributes $ return () where
   attributes = attr "domain" domain
     <> optionalAttr "port" port

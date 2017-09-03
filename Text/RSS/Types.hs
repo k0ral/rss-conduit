@@ -1,11 +1,15 @@
+{-# LANGUAGE DataKinds                 #-}
 {-# LANGUAGE DeriveGeneric             #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE FlexibleInstances         #-}
 {-# LANGUAGE GADTs                     #-}
 {-# LANGUAGE MultiParamTypeClasses     #-}
 {-# LANGUAGE RankNTypes                #-}
 {-# LANGUAGE StandaloneDeriving        #-}
+{-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE TypeOperators             #-}
+{-# LANGUAGE UndecidableInstances      #-}
 -- | RSS is an XML dialect for Web content syndication.
 --
 -- Example:
@@ -36,21 +40,20 @@ module Text.RSS.Types where
 
 -- {{{ Imports
 import           Control.Exception.Safe
-
 import           Data.Semigroup
 import           Data.Set
-import           Data.Text              hiding (map)
+import           Data.Singletons.Prelude.List
+import           Data.Text                    hiding (map)
 import           Data.Time.Clock
-import           Data.Time.LocalTime    ()
+import           Data.Time.LocalTime          ()
 import           Data.Version
-
-import           GHC.Generics           hiding ((:+:))
-
+import           Data.Vinyl.Core
+import           GHC.Generics                 hiding ((:+:))
 import           Text.Read
-
 import           URI.ByteString
 -- }}}
 
+-- * RSS core
 
 data RssException = InvalidBool Text
                   | InvalidDay Text
@@ -63,6 +66,7 @@ data RssException = InvalidBool Text
                   | MissingElement Text
 
 deriving instance Eq RssException
+deriving instance Generic RssException
 deriving instance Show RssException
 
 instance Exception RssException where
@@ -141,7 +145,9 @@ data RssGuid = GuidText Text | GuidUri RssURI
 
 
 -- | The @\<item\>@ element.
-data RssItem = RssItem
+--
+-- This type is open to extensions.
+data RssItem (extensions :: [*]) = RssItem
   { itemTitle       :: Text
   , itemLink        :: Maybe RssURI
   , itemDescription :: Text
@@ -152,13 +158,16 @@ data RssItem = RssItem
   , itemGuid        :: Maybe RssGuid
   , itemPubDate     :: Maybe UTCTime
   , itemSource      :: Maybe RssSource
+  , itemExtensions  :: RssItemExtensions extensions
   }
 
-deriving instance Eq RssItem
-deriving instance Generic RssItem
-deriving instance Ord RssItem
-deriving instance Show RssItem
+deriving instance (Eq (RssItemExtensions e)) => Eq (RssItem e)
+deriving instance (Generic (RssItemExtensions e)) => Generic (RssItem e)
+deriving instance (Ord (RssItemExtensions e)) => Ord (RssItem e)
+deriving instance (Show (RssItemExtensions e)) => Show (RssItem e)
 
+-- | Alias for 'RssItem' with no RSS extensions.
+type RssItem' = RssItem '[]
 
 -- | The @\<textInput\>@ element.
 data RssTextInput = RssTextInput
@@ -230,12 +239,14 @@ asDay :: MonadThrow m => Text -> m Day
 asDay t = maybe (throwM $ InvalidDay t) return . readMaybe $ unpack t
 
 -- | The @\<rss\>@ element.
-data RssDocument = RssDocument
+--
+-- This type is open to extensions.
+data RssDocument (extensions :: [*]) = RssDocument
   { documentVersion       :: Version
   , channelTitle          :: Text
   , channelLink           :: RssURI
   , channelDescription    :: Text
-  , channelItems          :: [RssItem]
+  , channelItems          :: [RssItem extensions]
   , channelLanguage       :: Text
   , channelCopyright      :: Text
   , channelManagingEditor :: Text
@@ -252,9 +263,53 @@ data RssDocument = RssDocument
   , channelTextInput      :: Maybe RssTextInput
   , channelSkipHours      :: Set Hour
   , channelSkipDays       :: Set Day
+  , channelExtensions     :: RssChannelExtensions extensions
   }
 
-deriving instance Eq RssDocument
-deriving instance Generic RssDocument
-deriving instance Ord RssDocument
-deriving instance Show RssDocument
+deriving instance (Eq (RssChannelExtensions e), Eq (RssItemExtensions e)) => Eq (RssDocument e)
+deriving instance (Generic (RssChannelExtensions e), Generic (RssItemExtensions e)) => Generic (RssDocument e)
+deriving instance (Ord (RssChannelExtensions e), Ord (RssItemExtensions e)) => Ord (RssDocument e)
+deriving instance (Show (RssChannelExtensions e), Show (RssItemExtensions e)) => Show (RssDocument e)
+
+-- | Alias for 'RssDocument' with no RSS extensions.
+type RssDocument' = RssDocument '[]
+
+-- * RSS extensions
+--
+-- $doc
+-- To implement an RSS extension:
+--
+-- - Create a void data-type, that will be used as a tag to identify the extension:
+--
+--   > data MyExtension :: *
+--
+-- - Implement extension types for @\<channel\>@ and @\<item\>@ elements:
+--
+--   > data instance RssChannelExtension MyExtension = MyExtensionChannel { {- ... fields -} }
+--   > data instance RssItemExtension MyExtension = MyExtensionItem { {- ... fields -} }
+--
+-- - Implement corresponding parsers (cf 'Text.RSS.Extensions').
+
+-- | @\<channel\>@ extension type.
+data family RssChannelExtension extensionTag :: *
+
+-- | @\<item\>@ extension type.
+data family RssItemExtension extensionTag :: *
+
+-- | Combination of multiple @\<channel\>@ extensions.
+data family RssChannelExtensions (extensionTags :: [*]) :: *
+data instance RssChannelExtensions a = RssChannelExtensions { rssChannelExtension :: Rec RssChannelExtension a }
+
+deriving instance (Eq (Rec RssChannelExtension a)) => Eq (RssChannelExtensions a)
+deriving instance (Generic (Rec RssChannelExtension a)) => Generic (RssChannelExtensions a)
+deriving instance (Ord (Rec RssChannelExtension a)) => Ord (RssChannelExtensions a)
+deriving instance (Show (Rec RssChannelExtension a)) => Show (RssChannelExtensions a)
+
+-- | Combination of multiple @\<item\>@ extensions.
+data family RssItemExtensions (extensionTags :: [*]) :: *
+data instance RssItemExtensions (a :: [*]) = RssItemExtensions { rssItemExtension :: Rec RssItemExtension a }
+
+deriving instance (Eq (Rec RssItemExtension a)) => Eq (RssItemExtensions a)
+deriving instance (Generic (Rec RssItemExtension a)) => Generic (RssItemExtensions a)
+deriving instance (Ord (Rec RssItemExtension a)) => Ord (RssItemExtensions a)
+deriving instance (Show (Rec RssItemExtension a)) => Show (RssItemExtensions a)

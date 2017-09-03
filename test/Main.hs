@@ -1,39 +1,48 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE OverloadedLists   #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE FlexibleInstances   #-}
+{-# LANGUAGE OverloadedLists     #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 -- {{{ Imports
+import           Text.RSS.Conduit.Parse          as Parser
+import           Text.RSS.Conduit.Render         as Renderer
+import           Text.RSS.Extensions
+import           Text.RSS.Extensions.Atom
+import           Text.RSS.Extensions.Content
+import           Text.RSS.Extensions.DublinCore
+import           Text.RSS.Extensions.Syndication
+import           Text.RSS.Lens
+import           Text.RSS.Types
+import           Text.RSS1.Conduit.Parse         as Parser
+
 import           Arbitrary
-
 import           Conduit
-
-import           Control.Exception.Safe       as Exception
+import           Control.Exception.Safe          as Exception
+import           Control.Monad
 import           Control.Monad.Trans.Resource
-
 import           Data.Char
 import           Data.Conduit
 import           Data.Conduit.List
 import           Data.Default
+import           Data.Singletons.Prelude.List
+import           Data.Text                       (Text)
+import           Data.Time.Calendar
+import           Data.Time.LocalTime
 import           Data.Version
-
-import qualified Language.Haskell.HLint       as HLint (hlint)
-
+import           Data.Vinyl.Core
+import           Data.XML.Types
+import qualified Language.Haskell.HLint          as HLint (hlint)
 import           Lens.Simple
-
+import           System.IO
+import           System.Timeout
 import           Test.Tasty
 import           Test.Tasty.HUnit
 import           Test.Tasty.QuickCheck
-
-import           Text.RSS.Conduit.Parse       as Parser
-import           Text.RSS.Conduit.Render      as Renderer
-import           Text.RSS.Lens
-import           Text.RSS.Types
-import           Text.RSS1.Conduit.Parse      as Parser
-import           Text.XML.Stream.Parse        as XML hiding (choose)
+import           Text.Atom.Conduit.Parse
+import           Text.Atom.Types
+import           Text.XML.Stream.Parse           as XML hiding (choose)
 import           Text.XML.Stream.Render
-
 import           URI.ByteString
-
-import           System.IO
 -- }}}
 
 main :: IO ()
@@ -61,6 +70,12 @@ unitTests = testGroup "Unit tests"
   , rss1ChannelItemsCase
   , rss1DocumentCase
   , rss2DocumentCase
+  , dublinCoreChannelCase
+  , dublinCoreItemCase
+  , contentItemCase
+  , syndicationChannelCase
+  , atomChannelCase
+  , multipleExtensionsCase
   ]
 
 properties :: TestTree
@@ -213,11 +228,15 @@ sourceCase = testCase "<source> element" $ do
 
 rss1ItemCase :: TestTree
 rss1ItemCase = testCase "RSS1 <item> element" $ do
-  result <- runResourceT . runConduit $ sourceList input =$= XML.parseText' def =$= force "ERROR" rss1Item
+  Just result <- runResourceT $ runConduit $ sourceList input =$= XML.parseText' def =$= rss1Item
   result^.itemTitleL @?= "Processing Inclusions with XSLT"
   result^.itemLinkL @?= Just link
   result^.itemDescriptionL @?= "Processing document inclusions with general XML tools can be problematic. This article proposes a way of preserving inclusion information through SAX-based processing."
-  where input = [ "<item xmlns=\"http://purl.org/rss/1.0/\" xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\" rdf:about=\"http://xml.com/pub/2000/08/09/xslt/xslt.html\">"
+  result^.itemExtensionsL @?= RssItemExtensions RNil
+  where input = [ "<item xmlns=\"http://purl.org/rss/1.0/\""
+                , "xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\""
+                , "xmlns:dc=\"http://purl.org/dc/elements/1.1/\""
+                , "rdf:about=\"http://xml.com/pub/2000/08/09/xslt/xslt.html\" >"
                 , "<title>Processing Inclusions with XSLT</title>"
                 , "<description>Processing document inclusions with general XML tools can be"
                 , " problematic. This article proposes a way of preserving inclusion"
@@ -236,6 +255,7 @@ rss2ItemCase = testCase "RSS2 <item> element" $ do
   result^.itemLinkL @?= Just link
   result^.itemDescriptionL @?= "Here is some text containing an interesting description."
   result^.itemGuidL @?= Just (GuidText "7bd204c6-1655-4c27-aeee-53f933c5395f")
+  result^.itemExtensionsL @?= RssItemExtensions RNil
   -- isJust (result^.itemPubDate_) @?= True
   where input = [ "<item>"
                 , "<title>Example entry</title>"
@@ -265,7 +285,7 @@ rss1ChannelItemsCase = testCase "RSS1 <items> element" $ do
 
 rss1DocumentCase :: TestTree
 rss1DocumentCase = testCase "<rdf> element" $ do
-  result <- runResourceT . runConduit $ sourceList input =$= XML.parseText' def =$= force "ERROR" rss1Document
+  Just result <- runResourceT . runConduit $ sourceList input =$= XML.parseText' def =$= rss1Document
   result^.documentVersionL @?= Version [1] []
   result^.channelTitleL @?= "XML.com"
   result^.channelDescriptionL @?= "XML.com features a rich mix of information and services for the XML community."
@@ -278,6 +298,7 @@ rss1DocumentCase = testCase "<rdf> element" $ do
   result^?channelTextInputL._Just.textInputDescriptionL @?= Just "Search XML.com's XML collection"
   result^?channelTextInputL._Just.textInputNameL @?= Just "s"
   result^?channelTextInputL._Just.textInputLinkL @?= Just textInputLink
+  result^.channelExtensionsL @?= RssChannelExtensions RNil
   where input = [ "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>"
                 , "<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\" xmlns=\"http://purl.org/rss/1.0/\">"
                 , "<channel rdf:about=\"http://www.xml.com/xml/news.rss\">"
@@ -323,12 +344,13 @@ rss1DocumentCase = testCase "<rdf> element" $ do
 
 rss2DocumentCase :: TestTree
 rss2DocumentCase = testCase "<rss> element" $ do
-  result <- runResourceT . runConduit $ sourceList input =$= XML.parseText' def =$= force "ERROR" rssDocument
+  Just result <- runResourceT . runConduit $ sourceList input =$= XML.parseText' def =$= rssDocument
   result^.documentVersionL @?= Version [2] []
   result^.channelTitleL @?= "RSS Title"
   result^.channelDescriptionL @?= "This is an example of an RSS feed"
   result^.channelLinkL @?= link
   result^.channelTtlL @?= Just 1800
+  result^.channelExtensionsL @?= RssChannelExtensions RNil
   length (result^..channelItemsL) @?= 1
   where input = [ "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>"
                 , "<rss version=\"2.0\">"
@@ -350,6 +372,124 @@ rss2DocumentCase = testCase "<rss> element" $ do
                 , "</rss>"
                 ]
         link = RssURI (URI (Scheme "http") (Just (Authority Nothing (Host "www.example.com") Nothing)) "/main.html" (Query []) Nothing)
+
+
+dublinCoreChannelCase :: TestTree
+dublinCoreChannelCase = testCase "Dublin Core <channel> extension" $ do
+  Just result <- runResourceT . runConduit $ sourceList input =$= XML.parseText' def =$= rssDocument
+  result^.channelExtensionsL @?= RssChannelExtensions (DublinCoreChannel dublinCoreElement :& RNil)
+  where input = [ "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>"
+                , "<rss xmlns:dc=\"http://purl.org/dc/elements/1.1/\" version=\"2.0\">"
+                , "<channel>"
+                , "<title>RSS Title</title>"
+                , "<link>http://xml.com/pub/2000/08/09/xslt/xslt.html</link>"
+                , "<dc:publisher>The O'Reilly Network</dc:publisher>"
+                , "<dc:creator>Rael Dornfest (mailto:rael@oreilly.com)</dc:creator>"
+                , "<dc:date>2000-01-01T12:00:00+00:00</dc:date>"
+                , "<dc:language>EN</dc:language>"
+                , "<dc:rights>Copyright © 2000 O'Reilly &amp; Associates, Inc.</dc:rights>"
+                , "<dc:subject>XML</dc:subject>"
+                , "</channel>"
+                , "</rss>"
+                ]
+        dublinCoreElement = mkDcMetaData
+          { elementCreator = "Rael Dornfest (mailto:rael@oreilly.com)"
+          , elementDate = Just date
+          , elementLanguage = "EN"
+          , elementPublisher = "The O'Reilly Network"
+          , elementRights = "Copyright © 2000 O'Reilly & Associates, Inc."
+          , elementSubject = "XML"
+          }
+        date = localTimeToUTC utc $ LocalTime (fromGregorian 2000 1 1) (TimeOfDay 12 0 0)
+
+dublinCoreItemCase :: TestTree
+dublinCoreItemCase = testCase "Dublin Core <item> extension" $ do
+  Just result <- runResourceT . runConduit $ sourceList input =$= XML.parseText' def =$= rssItem
+  result^.itemExtensionsL @?= RssItemExtensions (DublinCoreItem dublinCoreElement :& RNil)
+  where input = [ "<item xmlns:dc=\"http://purl.org/dc/elements/1.1/\">"
+                , "<title>Example entry</title>"
+                , "<dc:description>XML is placing increasingly heavy loads on the existing technical "
+                , "infrastructure of the Internet.</dc:description>"
+                , "<dc:language>EN</dc:language>"
+                , "<dc:publisher>The O'Reilly Network</dc:publisher>"
+                , "<dc:creator>Simon St.Laurent (mailto:simonstl@simonstl.com)</dc:creator>"
+                , "<dc:date>2000-01-01T12:00:00+00:00</dc:date>"
+                , "<dc:rights>Copyright © 2000 O'Reilly &amp; Associates, Inc.</dc:rights>"
+                , "<dc:subject>XML</dc:subject>"
+                , "</item>"
+                ]
+        dublinCoreElement = mkDcMetaData
+          { elementCreator = "Simon St.Laurent (mailto:simonstl@simonstl.com)"
+          , elementDate = Just date
+          , elementLanguage = "EN"
+          , elementDescription = "XML is placing increasingly heavy loads on the existing technical infrastructure of the Internet."
+          , elementPublisher = "The O'Reilly Network"
+          , elementRights = "Copyright © 2000 O'Reilly & Associates, Inc."
+          , elementSubject = "XML"
+          }
+        date = localTimeToUTC utc $ LocalTime (fromGregorian 2000 1 1) (TimeOfDay 12 0 0)
+
+contentItemCase :: TestTree
+contentItemCase = testCase "Content <item> extension" $ do
+  Just result <- runResourceT . runConduit $ sourceList input =$= XML.parseText' def =$= rssItem
+  result^.itemExtensionsL @?= RssItemExtensions (ContentItem "<p>What a <em>beautiful</em> day!</p>" :& RNil)
+  where input = [ "<item xmlns:content=\"http://purl.org/rss/1.0/modules/content/\">"
+                , "<title>Example entry</title>"
+                , "<content:encoded><![CDATA[<p>What a <em>beautiful</em> day!</p>]]></content:encoded>"
+                , "</item>"
+                ]
+
+syndicationChannelCase :: TestTree
+syndicationChannelCase = testCase "Syndication <channel> extension" $ do
+  Just result <- runResourceT . runConduit $ sourceList input =$= XML.parseText' def =$= rssDocument
+  result^.channelExtensionsL @?= RssChannelExtensions (SyndicationChannel syndicationInfo :& RNil)
+  where input = [ "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>"
+                , "<rss xmlns:sy=\"http://purl.org/rss/1.0/modules/syndication/\" version=\"2.0\">"
+                , "<channel>"
+                , "<title>RSS Title</title>"
+                , "<link>http://xml.com/pub/2000/08/09/xslt/xslt.html</link>"
+                , "<sy:updatePeriod>hourly</sy:updatePeriod>"
+                , "<sy:updateFrequency>2</sy:updateFrequency>"
+                , "<sy:updateBase>2000-01-01T12:00:00+00:00</sy:updateBase>"
+                , "</channel>"
+                , "</rss>"
+                ]
+        syndicationInfo = mkSyndicationInfo
+          { updatePeriod = Just Hourly
+          , updateFrequency = Just 2
+          , updateBase = Just date
+          }
+        date = localTimeToUTC utc $ LocalTime (fromGregorian 2000 1 1) (TimeOfDay 12 0 0)
+
+atomChannelCase :: TestTree
+atomChannelCase = testCase "Atom <channel> extension" $ do
+  Just result <- runResourceT . runConduit $ sourceList input =$= XML.parseText' def =$= rssDocument
+  result^.channelExtensionsL @?= RssChannelExtensions (AtomChannel (Just link) :& RNil)
+  where input = [ "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>"
+                , "<rss xmlns:atom=\"http://www.w3.org/2005/Atom\" version=\"2.0\">"
+                , "<channel>"
+                , "<title>RSS Title</title>"
+                , "<link>http://xml.com/pub/2000/08/09/xslt/xslt.html</link>"
+                , "<atom:link href=\"http://dallas.example.com/rss.xml\" rel=\"self\" type=\"application/rss+xml\" />"
+                , "</channel>"
+                , "</rss>"
+                ]
+        uri = AtomURI (URI (Scheme "http") (Just (Authority Nothing (Host "dallas.example.com") Nothing)) "/rss.xml" (Query []) Nothing)
+        link = AtomLink uri "self" "application/rss+xml" mempty mempty mempty
+
+multipleExtensionsCase :: TestTree
+multipleExtensionsCase = testCase "Multiple extensions" $ do
+  Just result <- runResourceT . runConduit $ sourceList input =$= XML.parseText' def =$= rssItem
+  result^.itemExtensionsL @?= RssItemExtensions (ContentItem "<p>What a <em>beautiful</em> day!</p>" :& AtomItem (Just link) :& RNil)
+  where input = [ "<item xmlns:content=\"http://purl.org/rss/1.0/modules/content/\""
+                , " xmlns:atom=\"http://www.w3.org/2005/Atom\">"
+                , "<title>Example entry</title>"
+                , "<atom:link href=\"http://dallas.example.com/rss.xml\" rel=\"self\" type=\"application/rss+xml\" />"
+                , "<content:encoded><![CDATA[<p>What a <em>beautiful</em> day!</p>]]></content:encoded>"
+                , "</item>"
+                ]
+        uri = AtomURI (URI (Scheme "http") (Just (Authority Nothing (Host "dallas.example.com") Nothing)) "/rss.xml" (Query []) Nothing)
+        link = AtomLink uri "self" "application/rss+xml" mempty mempty mempty
 
 
 hlint :: TestTree
@@ -377,7 +517,7 @@ roundtripGuidProperty :: TestTree
 roundtripGuidProperty = testProperty "parse . render = id (RssGuid)" $ \t -> either (const False) (t ==) (runConduit $ renderRssGuid t =$= force "ERROR" rssGuid)
 
 roundtripItemProperty :: TestTree
-roundtripItemProperty = testProperty "parse . render = id (RssItem)" $ \t -> either (const False) (t ==) (runConduit $ renderRssItem t =$= force "ERROR" rssItem)
+roundtripItemProperty = testProperty "parse . render = id (RssItem)" $ \(t :: RssItem '[]) -> either (const False) (t ==) (runConduit $ renderRssItem t =$= force "ERROR" rssItem)
 
 
 letter = choose ('a', 'z')
