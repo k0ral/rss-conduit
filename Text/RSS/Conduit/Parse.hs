@@ -204,7 +204,7 @@ makeTraversals ''ItemPiece
 
 -- | Parse an @\<item\>@ element.
 --
--- RSS extensions are automatically parsed based on the expected result type.
+-- RSS extensions are automatically parsed based on the inferred result type.
 rssItem :: ParseRssExtensions e => MonadThrow m => ConduitM Event o m (Maybe (RssItem e))
 rssItem = tagIgnoreAttrs "item" $ (manyYield' (choose piece) =$= parser) <* many ignoreAnyTreeContent where
   parser = getZipConduit $ RssItem
@@ -246,7 +246,7 @@ makeTraversals ''ChannelPiece
 
 -- | Parse an @\<rss\>@ element.
 --
--- RSS extensions are automatically parsed based on the expected result type.
+-- RSS extensions are automatically parsed based on the inferred result type.
 rssDocument :: ParseRssExtensions e => MonadThrow m => ConduitM Event o m (Maybe (RssDocument e))
 rssDocument = tagName' "rss" attributes $ \version -> force "Missing <channel>" $ tagIgnoreAttrs "channel" (manyYield' (choose piece) =$= parser version) <* many ignoreAnyTreeContent where
   parser version = getZipConduit $ RssDocument version

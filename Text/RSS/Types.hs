@@ -288,7 +288,7 @@ type RssDocument' = RssDocument '[]
 --   > data instance RssChannelExtension MyExtension = MyExtensionChannel { {- ... fields -} }
 --   > data instance RssItemExtension MyExtension = MyExtensionItem { {- ... fields -} }
 --
--- - Implement corresponding parsers (cf 'Text.RSS.Extensions').
+-- - Implement corresponding parsers (cf "Text.RSS.Extensions").
 
 -- | @\<channel\>@ extension type.
 data family RssChannelExtension extensionTag :: *

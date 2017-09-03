@@ -120,7 +120,7 @@ makeTraversals ''ItemPiece
 
 -- | Parse an @\<item\>@ element.
 --
--- RSS extensions are automatically parsed based on the expected result type.
+-- RSS extensions are automatically parsed based on the inferred result type.
 rss1Item :: ParseRssExtensions e => MonadCatch m => ConduitM Event o m (Maybe (RssItem e))
 rss1Item = rss1Tag "item" attributes $ \uri -> (manyYield' (choose piece) =$= parser uri) <* many ignoreAnyTreeContent where
   parser uri = getZipConduit $ RssItem
@@ -196,7 +196,7 @@ makeTraversals ''ChannelPiece
 
 -- | Parse a @\<channel\>@ element.
 --
--- RSS extensions are automatically parsed based on the expected result type.
+-- RSS extensions are automatically parsed based on the inferred result type.
 rss1Channel :: ParseRssExtensions e => MonadThrow m => ConduitM Event o m (Maybe (Rss1Channel e))
 rss1Channel = rss1Tag "channel" attributes $ \channelId -> (manyYield' (choose piece) =$= parser channelId) <* many ignoreAnyTreeContent where
   parser channelId = getZipConduit $ Rss1Channel channelId
@@ -255,7 +255,7 @@ makeTraversals ''DocumentPiece
 
 -- | Parse an @\<RDF\>@ element.
 --
--- RSS extensions are automatically parsed based on the expected result type.
+-- RSS extensions are automatically parsed based on the inferred result type.
 rss1Document :: ParseRssExtensions e => MonadCatch m => ConduitM Event o m (Maybe (RssDocument e))
 rss1Document = fmap (fmap rss1ToRss2) $ rdfTag "RDF" ignoreAttrs $ const $ (manyYield' (choose piece) =$= parser) <* many ignoreAnyTreeContent where
   parser = getZipConduit $ Rss1Document

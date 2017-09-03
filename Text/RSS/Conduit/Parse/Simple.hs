@@ -2,7 +2,7 @@
 {-# LANGUAGE RankNTypes       #-}
 -- | Streaming parsers for the RSS 2.0 standard.
 --
--- This module re-exports a monomorphic version of the parsers from 'Text.RSS.Conduit.Parse' that ignores RSS extensions.
+-- This module re-exports a monomorphic version of the parsers from "Text.RSS.Conduit.Parse" that ignores RSS extensions.
 module Text.RSS.Conduit.Parse.Simple
   ( -- * Top-level
     rssDocument
