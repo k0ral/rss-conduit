@@ -30,5 +30,7 @@ instance ParseRssExtension AtomModule where
   parseRssChannelExtension = AtomChannel <$> (manyYield' atomLink =$= headC)
   parseRssItemExtension    = AtomItem <$> (manyYield' atomLink =$= headC)
 
-data instance RssChannelExtension AtomModule = AtomChannel (Maybe AtomLink) deriving(Eq, Generic, Show)
-data instance RssItemExtension AtomModule = AtomItem (Maybe AtomLink) deriving(Eq, Generic, Show)
+data instance RssChannelExtension AtomModule = AtomChannel { channelAtomLink :: Maybe AtomLink }
+  deriving(Eq, Generic, Show)
+data instance RssItemExtension AtomModule = AtomItem { itemAtomLink :: Maybe AtomLink }
+  deriving(Eq, Generic, Show)

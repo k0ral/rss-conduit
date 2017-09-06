@@ -10,7 +10,9 @@
 module Text.RSS.Extensions.DublinCore
   ( DublinCoreModule(..)
   , RssChannelExtension(DublinCoreChannel)
+  , channelDcMetaData
   , RssItemExtension(DublinCoreItem)
+  , itemDcMetaData
   , DcMetaData(..)
   , mkDcMetaData
   ) where
@@ -126,5 +128,7 @@ instance ParseRssExtension DublinCoreModule where
   parseRssItemExtension    = DublinCoreItem <$> dcMetadata
 
 
-data instance RssChannelExtension DublinCoreModule = DublinCoreChannel DcMetaData deriving(Eq, Generic, Ord, Show)
-data instance RssItemExtension DublinCoreModule = DublinCoreItem DcMetaData deriving(Eq, Generic, Ord, Show)
+data instance RssChannelExtension DublinCoreModule = DublinCoreChannel { channelDcMetaData :: DcMetaData }
+  deriving(Eq, Generic, Ord, Show)
+data instance RssItemExtension DublinCoreModule = DublinCoreItem { itemDcMetaData :: DcMetaData }
+  deriving(Eq, Generic, Ord, Show)

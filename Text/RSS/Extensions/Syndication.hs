@@ -150,5 +150,6 @@ instance ParseRssExtension SyndicationModule where
   parseRssItemExtension    = pure SyndicationItem
 
 
-data instance RssChannelExtension SyndicationModule = SyndicationChannel SyndicationInfo deriving(Eq, Generic, Ord, Show)
+data instance RssChannelExtension SyndicationModule = SyndicationChannel { channelSyndicationInfo :: SyndicationInfo}
+  deriving(Eq, Generic, Ord, Show)
 data instance RssItemExtension SyndicationModule = SyndicationItem deriving(Eq, Generic, Ord, Show)

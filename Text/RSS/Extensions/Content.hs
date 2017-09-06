@@ -48,7 +48,8 @@ instance ParseRssExtension ContentModule where
 
 
 data instance RssChannelExtension ContentModule = ContentChannel deriving(Eq, Generic, Ord, Show)
-data instance RssItemExtension ContentModule = ContentItem Text deriving(Eq, Generic, Ord, Show)
+data instance RssItemExtension ContentModule = ContentItem { itemContent :: Text }
+  deriving(Eq, Generic, Ord, Show)
 
 
 -- | XML prefix is @content@.
