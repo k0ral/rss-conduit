@@ -35,7 +35,6 @@ import           Data.Conduit
 import           Data.List.NonEmpty           (NonEmpty (..), nonEmpty)
 import           Data.Maybe
 import           Data.Monoid
-import           Data.MonoTraversable
 import           Data.Set                     hiding (fold)
 import           Data.Text                    as Text
 import           Data.Text.Encoding
@@ -46,6 +45,7 @@ import           Data.Version
 import           Data.XML.Types
 import           Lens.Simple
 import           Prelude                      hiding (last, lookup)
+import           Safe
 import           Text.ParserCombinators.ReadP (readP_to_S)
 import           Text.Read                    (readMaybe)
 import           Text.XML.Stream.Parse

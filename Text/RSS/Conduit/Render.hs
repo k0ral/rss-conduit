@@ -21,11 +21,10 @@ import           Text.RSS.Lens
 import           Text.RSS.Types
 
 import           Control.Monad
-
 import           Data.Conduit
 import           Data.Monoid
-import           Data.MonoTraversable
 import           Data.Set               (Set)
+import qualified Data.Set               as Set
 import           Data.Text              as Text hiding (map)
 import           Data.Text.Encoding
 import           Data.Time.Clock
@@ -33,13 +32,9 @@ import           Data.Time.LocalTime
 import           Data.Time.RFC822
 import           Data.Version
 import           Data.XML.Types
-
 import           Lens.Simple
-
 import           Safe
-
 import           Text.XML.Stream.Render
-
 import           URI.ByteString
 -- }}}
 
@@ -153,11 +148,11 @@ renderRssTextInput t = tag "textInput" mempty $ do
 
 -- | Render a @\<skipDays\>@ element.
 renderRssSkipDays :: (Monad m) => Set Day -> Source m Event
-renderRssSkipDays s = unless (onull s) $ tag "skipDays" mempty $ forM_ s $ textTag "day" . tshow
+renderRssSkipDays s = unless (Set.null s) $ tag "skipDays" mempty $ forM_ s $ textTag "day" . tshow
 
 -- | Render a @\<skipHours\>@ element.
 renderRssSkipHours :: (Monad m) => Set Hour -> Source m Event
-renderRssSkipHours s = unless (onull s) $ tag "skipHour" mempty $ forM_ s $ textTag "hour" . tshow
+renderRssSkipHours s = unless (Set.null s) $ tag "skipHour" mempty $ forM_ s $ textTag "hour" . tshow
 
 
 -- {{{ Utils
@@ -167,8 +162,8 @@ tshow = pack . show
 textTag :: (Monad m) => Name -> Text -> Source m Event
 textTag name = tag name mempty . content
 
-optionalTextTag :: (Monad m) => Name -> Text -> Source m Event
-optionalTextTag name value = unless (onull value) $ textTag name value
+optionalTextTag :: Monad m => Name -> Text -> Source m Event
+optionalTextTag name value = unless (Text.null value) $ textTag name value
 
 dateTag :: (Monad m) => Name -> UTCTime -> Source m Event
 dateTag name = tag name mempty . content . formatTimeRFC822 . utcToZonedTime utc
