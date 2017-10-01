@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleInstances   #-}
 {-# LANGUAGE OverloadedLists     #-}
 {-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE QuasiQuotes         #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 -- {{{ Imports
 import           Text.RSS.Conduit.Parse          as Parser
@@ -46,6 +47,7 @@ import           Text.Atom.Types
 import           Text.XML.Stream.Parse           as XML hiding (choose)
 import           Text.XML.Stream.Render
 import           URI.ByteString
+import           URI.ByteString.QQ
 -- }}}
 
 main :: IO ()
@@ -147,7 +149,7 @@ rss1TextInputCase = testCase "RSS1 <textinput> element" $ do
   result^.textInputTitleL @?= "Search XML.com"
   result^.textInputDescriptionL @?= "Search XML.com's XML collection"
   result^.textInputNameL @?= "s"
-  result^.textInputLinkL @=? RssURI (URI (Scheme "http") (Just (Authority Nothing (Host "search.xml.com") Nothing)) "" (Query []) Nothing)
+  result^.textInputLinkL @=? RssURI [uri|http://search.xml.com|]
   where input = [ "<textinput xmlns=\"http://purl.org/rss/1.0/\" xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\" rdf:about=\"http://search.xml.com\">"
                 , "<title>Search XML.com</title>"
                 , "<description>Search XML.com's XML collection</description>"
@@ -162,7 +164,7 @@ rss2TextInputCase = testCase "RSS2 <textInput> element" $ do
   result^.textInputTitleL @?= "Title"
   result^.textInputDescriptionL @?= "Description"
   result^.textInputNameL @?= "Name"
-  result^.textInputLinkL @=? RssURI (URI (Scheme "http") (Just (Authority Nothing (Host "link.ext") Nothing)) "" (Query []) Nothing)
+  result^.textInputLinkL @=? RssURI [uri|http://link.ext|]
   where input = [ "<textInput>"
                 , "<title>Title</title>"
                 , "<description>Description</description>"
@@ -174,9 +176,9 @@ rss2TextInputCase = testCase "RSS2 <textInput> element" $ do
 rss1ImageCase :: TestTree
 rss1ImageCase = testCase "RSS1 <image> element" $ do
   result <- runResourceT . runConduit $ sourceList input =$= XML.parseText' def =$= force "ERROR" rss1Image
-  result^.imageUriL @?= RssURI (URI (Scheme "http") (Just (Authority Nothing (Host "xml.com") Nothing)) "/universal/images/xml_tiny.gif" (Query []) Nothing)
+  result^.imageUriL @?= RssURI [uri|http://xml.com/universal/images/xml_tiny.gif|]
   result^.imageTitleL @?= "XML.com"
-  result^.imageLinkL @?= RssURI (URI (Scheme "http") (Just (Authority Nothing (Host "www.xml.com") Nothing)) "" (Query []) Nothing)
+  result^.imageLinkL @?= RssURI [uri|http://www.xml.com|]
   where input = [ "<image xmlns=\"http://purl.org/rss/1.0/\" xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\" rdf:about=\"http://xml.com/universal/images/xml_tiny.gif\">"
                 , "<url>http://xml.com/universal/images/xml_tiny.gif</url>"
                 , "<title>XML.com</title>"
@@ -189,9 +191,9 @@ rss1ImageCase = testCase "RSS1 <image> element" $ do
 rss2ImageCase :: TestTree
 rss2ImageCase = testCase "RSS2 <image> element" $ do
   result <- runResourceT . runConduit $ sourceList input =$= XML.parseText' def =$= force "ERROR" rssImage
-  result^.imageUriL @?= RssURI (URI (Scheme "http") (Just (Authority Nothing (Host "image.ext") Nothing)) "" (Query []) Nothing)
+  result^.imageUriL @?= RssURI [uri|http://image.ext|]
   result^.imageTitleL @?= "Title"
-  result^.imageLinkL @?= RssURI (URI (Scheme "http") (Just (Authority Nothing (Host "link.ext") Nothing)) "" (Query []) Nothing)
+  result^.imageLinkL @?= RssURI [uri|http://link.ext|]
   result^.imageWidthL @?= Just 100
   result^.imageHeightL @?= Just 200
   result^.imageDescriptionL @?= "Description"
@@ -224,7 +226,7 @@ cloudCase = testCase "<cloud> element" $ do
   where input = [ "<cloud domain=\"rpc.sys.com\" port=\"80\" path=\"/RPC2\" registerProcedure=\"pingMe\" protocol=\"soap\"/>"
                 , "<cloud domain=\"rpc.sys.com\" port=\"80\" path=\"/RPC2\" registerProcedure=\"myCloud.rssPleaseNotify\" protocol=\"xml-rpc\" />"
                 ]
-        uri = RssURI (RelativeRef (Just (Authority Nothing (Host "rpc.sys.com") (Just $ Port 80))) "/RPC2" (Query []) Nothing)
+        uri = RssURI [relativeRef|//rpc.sys.com:80/RPC2|]
 
 guidCase :: TestTree
 guidCase = testCase "<guid> element" $ do
@@ -234,23 +236,23 @@ guidCase = testCase "<guid> element" $ do
                 , "<guid isPermaLink=\"false\">1</guid>"
                 , "<guid>2</guid>"
                 ]
-        uri = RssURI (RelativeRef (Just (Authority Nothing (Host "guid.ext") Nothing)) "" (Query []) Nothing)
+        uri = RssURI [relativeRef|//guid.ext|]
 
 enclosureCase :: TestTree
 enclosureCase = testCase "<enclosure> element" $ do
   result <- runResourceT . runConduit $ sourceList input =$= XML.parseText' def =$= force "ERROR" rssEnclosure
-  result @?= RssEnclosure uri 12216320 "audio/mpeg"
+  result @?= RssEnclosure url 12216320 "audio/mpeg"
   where input = [ "<enclosure url=\"http://www.scripting.com/mp3s/weatherReportSuite.mp3\" length=\"12216320\" type=\"audio/mpeg\" />"
                 ]
-        uri = RssURI (URI (Scheme "http") (Just (Authority Nothing (Host "www.scripting.com") Nothing)) "/mp3s/weatherReportSuite.mp3" (Query []) Nothing)
+        url = RssURI [uri|http://www.scripting.com/mp3s/weatherReportSuite.mp3|]
 
 sourceCase :: TestTree
 sourceCase = testCase "<source> element" $ do
   result <- runResourceT . runConduit $ sourceList input =$= XML.parseText' def =$= force "ERROR" rssSource
-  result @?= RssSource uri "Tomalak's Realm"
+  result @?= RssSource url "Tomalak's Realm"
   where input = [ "<source url=\"http://www.tomalak.org/links2.xml\">Tomalak's Realm</source>"
                 ]
-        uri = RssURI (URI (Scheme "http") (Just (Authority Nothing (Host "www.tomalak.org") Nothing)) "/links2.xml" (Query []) Nothing)
+        url = RssURI [uri|http://www.tomalak.org/links2.xml|]
 
 rss1ItemCase :: TestTree
 rss1ItemCase = testCase "RSS1 <item> element" $ do
@@ -272,7 +274,7 @@ rss1ItemCase = testCase "RSS1 <item> element" $ do
                 , "<sometag>Some content in unknown tag, should be ignored.</sometag>"
                 , "</item>"
                 ]
-        link = RssURI (URI (Scheme "http") (Just (Authority Nothing (Host "xml.com") Nothing)) "/pub/2000/08/09/xslt/xslt.html" (Query []) Nothing)
+        link = RssURI [uri|http://xml.com/pub/2000/08/09/xslt/xslt.html|]
 
 rss2ItemCase :: TestTree
 rss2ItemCase = testCase "RSS2 <item> element" $ do
@@ -292,7 +294,7 @@ rss2ItemCase = testCase "RSS2 <item> element" $ do
                 , "<sometag>Some content in unknown tag, should be ignored.</sometag>"
                 , "</item>"
                 ]
-        link = RssURI (URI (Scheme "http") (Just (Authority Nothing (Host "www.example.com") Nothing)) "/blog/post/1" (Query []) Nothing)
+        link = RssURI [uri|http://www.example.com/blog/post/1|]
 
 
 rss1ChannelItemsCase :: TestTree
@@ -362,10 +364,10 @@ rss1DocumentCase = testCase "<rdf> element" $ do
                 , "</textinput>"
                 , "</rdf:RDF>"
                 ]
-        link = RssURI (URI (Scheme "http") (Just (Authority Nothing (Host "xml.com") Nothing)) "/pub" (Query []) Nothing)
-        imageLink = RssURI (URI (Scheme "http") (Just (Authority Nothing (Host "www.xml.com") Nothing)) "" (Query []) Nothing)
-        imageUri = RssURI (URI (Scheme "http") (Just (Authority Nothing (Host "xml.com") Nothing)) "/universal/images/xml_tiny.gif" (Query []) Nothing)
-        textInputLink = RssURI (URI (Scheme "http") (Just (Authority Nothing (Host "search.xml.com") Nothing)) "" (Query []) Nothing)
+        link = RssURI [uri|http://xml.com/pub|]
+        imageLink = RssURI [uri|http://www.xml.com|]
+        imageUri = RssURI [uri|http://xml.com/universal/images/xml_tiny.gif|]
+        textInputLink = RssURI [uri|http://search.xml.com|]
 
 
 rss2DocumentCase :: TestTree
@@ -397,7 +399,7 @@ rss2DocumentCase = testCase "<rss> element" $ do
                 , "</channel>"
                 , "</rss>"
                 ]
-        link = RssURI (URI (Scheme "http") (Just (Authority Nothing (Host "www.example.com") Nothing)) "/main.html" (Query []) Nothing)
+        link = RssURI [uri|http://www.example.com/main.html|]
 
 
 dublinCoreChannelCase :: TestTree
@@ -500,8 +502,8 @@ atomChannelCase = testCase "Atom <channel> extension" $ do
                 , "</channel>"
                 , "</rss>"
                 ]
-        uri = AtomURI (URI (Scheme "http") (Just (Authority Nothing (Host "dallas.example.com") Nothing)) "/rss.xml" (Query []) Nothing)
-        link = AtomLink uri "self" "application/rss+xml" mempty mempty mempty
+        url = AtomURI [uri|http://dallas.example.com/rss.xml|]
+        link = AtomLink url "self" "application/rss+xml" mempty mempty mempty
 
 multipleExtensionsCase :: TestTree
 multipleExtensionsCase = testCase "Multiple extensions" $ do
@@ -514,8 +516,8 @@ multipleExtensionsCase = testCase "Multiple extensions" $ do
                 , "<content:encoded><![CDATA[<p>What a <em>beautiful</em> day!</p>]]></content:encoded>"
                 , "</item>"
                 ]
-        uri = AtomURI (URI (Scheme "http") (Just (Authority Nothing (Host "dallas.example.com") Nothing)) "/rss.xml" (Query []) Nothing)
-        link = AtomLink uri "self" "application/rss+xml" mempty mempty mempty
+        url = AtomURI [uri|http://dallas.example.com/rss.xml|]
+        link = AtomLink url "self" "application/rss+xml" mempty mempty mempty
 
 
 hlint :: TestTree
