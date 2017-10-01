@@ -17,6 +17,7 @@ module Text.RSS.Conduit.Render
   ) where
 
 -- {{{ Imports
+import           Text.RSS.Extensions
 import           Text.RSS.Lens
 import           Text.RSS.Types
 
@@ -39,9 +40,7 @@ import           URI.ByteString
 -- }}}
 
 -- | Render the top-level @\<rss\>@ element.
---
--- __Note__: RSS extensions are NOT rendered.
-renderRssDocument :: Monad m => RssDocument a -> Source m Event
+renderRssDocument :: Monad m => RenderRssExtensions e => RssDocument e -> Source m Event
 renderRssDocument d = tag "rss" (attr "version" . pack . showVersion $ d^.documentVersionL) $
   tag "channel" mempty $ do
     textTag "title" $ d^.channelTitleL
@@ -64,11 +63,10 @@ renderRssDocument d = tag "rss" (attr "version" . pack . showVersion $ d^.docume
     renderRssSkipHours $ d^.channelSkipHoursL
     renderRssSkipDays $ d^.channelSkipDaysL
     forM_ (d^..channelItemsL) renderRssItem
+    renderRssChannelExtensions $ d^.channelExtensionsL
 
 -- | Render an @\<item\>@ element.
---
--- __Note__: RSS extensions are NOT rendered.
-renderRssItem :: Monad m => RssItem e -> Source m Event
+renderRssItem :: Monad m => RenderRssExtensions e => RssItem e -> Source m Event
 renderRssItem i = tag "item" mempty $ do
   optionalTextTag "title" $ i^.itemTitleL
   forM_ (i^.itemLinkL) $ textTag "link" . renderRssURI
@@ -80,6 +78,7 @@ renderRssItem i = tag "item" mempty $ do
   forM_ (i^.itemGuidL) renderRssGuid
   forM_ (i^.itemPubDateL) $ dateTag "pubDate"
   forM_ (i^.itemSourceL) renderRssSource
+  renderRssItemExtensions $ i^.itemExtensionsL
 
 -- | Render a @\<source\>@ element.
 renderRssSource :: (Monad m) => RssSource -> Source m Event
@@ -156,7 +155,7 @@ renderRssSkipHours s = unless (Set.null s) $ tag "skipHour" mempty $ forM_ s $ t
 
 
 -- {{{ Utils
-tshow :: (Show a) => a -> Text
+tshow :: Show a => a -> Text
 tshow = pack . show
 
 textTag :: (Monad m) => Name -> Text -> Source m Event

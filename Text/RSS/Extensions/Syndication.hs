@@ -3,6 +3,7 @@
 {-# LANGUAGE KindSignatures    #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
+{-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE TemplateHaskell   #-}
 {-# LANGUAGE TypeFamilies      #-}
 -- | __Syndication__ module for RSS.
@@ -17,9 +18,15 @@ module Text.RSS.Extensions.Syndication
   , SyndicationPeriod(..)
   , asSyndicationPeriod
     -- * Parsers
+  , syndicationInfo
   , syndicationPeriod
   , syndicationFrequency
   , syndicationBase
+    -- * Renderers
+  , renderSyndicationInfo
+  , renderSyndicationPeriod
+  , renderSyndicationFrequency
+  , renderSyndicationBase
     -- * Misc
   , namespacePrefix
   , namespaceURI
@@ -29,9 +36,9 @@ module Text.RSS.Extensions.Syndication
 import           Text.RSS.Extensions
 import           Text.RSS.Types
 
-import           Conduit                           hiding (throwM)
+import           Conduit                hiding (throwM)
 import           Control.Applicative
-import           Control.Exception.Safe            as Exception
+import           Control.Exception.Safe as Exception
 import           Control.Monad
 import           Control.Monad.Fix
 import           Data.Maybe
@@ -46,12 +53,15 @@ import           Data.XML.Types
 import           GHC.Generics
 import           Lens.Simple
 import           Text.Read
-import qualified Text.XML.DublinCore.Conduit.Parse as DC
 import           Text.XML.Stream.Parse
+import qualified Text.XML.Stream.Render as Render
 import           URI.ByteString
 -- }}}
 
 -- {{{ Utils
+tshow :: Show a => a -> Text
+tshow = pack . show
+
 asDate :: MonadThrow m => Text -> m UTCTime
 asDate text = maybe (throw $ InvalidTime text) (return . zonedTimeToUTC) $
   parseTimeRFC3339 text <|> parseTimeRFC2822 text <|> parseTimeRFC822 text
@@ -87,6 +97,9 @@ syndicationName string = Name string (Just "http://purl.org/rss/1.0/modules/synd
 syndicationTag :: MonadThrow m => Text -> ConduitM Event o m a -> ConduitM Event o m (Maybe a)
 syndicationTag name = tagIgnoreAttrs (matching (== syndicationName name))
 
+renderSyndicationTag :: Monad m => Text -> Text -> Source m Event
+renderSyndicationTag name = Render.tag (syndicationName name) mempty . Render.content
+
 
 data SyndicationPeriod = Hourly | Daily | Weekly | Monthly | Yearly deriving(Eq, Generic, Ord, Show)
 
@@ -97,6 +110,14 @@ asSyndicationPeriod "weekly"  = pure Weekly
 asSyndicationPeriod "monthly" = pure Monthly
 asSyndicationPeriod "yearly"  = pure Yearly
 asSyndicationPeriod t         = throw $ InvalidSyndicationPeriod t
+
+fromSyndicationPeriod :: SyndicationPeriod -> Text
+fromSyndicationPeriod Hourly  = "hourly"
+fromSyndicationPeriod Daily   = "daily"
+fromSyndicationPeriod Weekly  = "weekly"
+fromSyndicationPeriod Monthly = "monthly"
+fromSyndicationPeriod Yearly  = "yearly"
+
 
 -- | __Syndication__ extension model.
 data SyndicationInfo = SyndicationInfo
@@ -114,7 +135,7 @@ data ElementPiece = ElementPeriod SyndicationPeriod | ElementFrequency Int | Ele
 
 makeTraversals ''ElementPiece
 
--- | Parse __Syndication__ elements.
+-- | Parse all __Syndication__ elements.
 syndicationInfo :: MonadThrow m => ConduitM Event o m SyndicationInfo
 syndicationInfo = manyYield' (choose piece) =$= parser where
   parser = getZipConduit $ SyndicationInfo
@@ -138,6 +159,26 @@ syndicationFrequency = syndicationTag "updateFrequency" (content >>= asInt)
 syndicationBase :: MonadThrow m => ConduitM Event o m (Maybe UTCTime)
 syndicationBase = syndicationTag "updateBase" (content >>= asDate)
 
+-- | Render all __Syndication__ elements.
+renderSyndicationInfo :: Monad m => SyndicationInfo -> Source m Event
+renderSyndicationInfo SyndicationInfo{..} = do
+  forM_ updatePeriod renderSyndicationPeriod
+  forM_ updateFrequency renderSyndicationFrequency
+  forM_ updateBase renderSyndicationBase
+
+-- | Render a @\<sy:updatePeriod\>@ element.
+renderSyndicationPeriod :: Monad m => SyndicationPeriod -> Source m Event
+renderSyndicationPeriod = renderSyndicationTag "updatePeriod" . fromSyndicationPeriod
+
+-- | Render a @\<sy:updateFrequency\>@ element.
+renderSyndicationFrequency :: Monad m => Int -> Source m Event
+renderSyndicationFrequency = renderSyndicationTag "updateFrequency" . tshow
+
+-- | Render a @\<sy:updateBase\>@ element.
+renderSyndicationBase :: Monad m => UTCTime -> Source m Event
+renderSyndicationBase = renderSyndicationTag "updateBase" . formatTimeRFC822 . utcToZonedTime utc
+
+
 -- | __Syndication__ tag type.
 data SyndicationModule :: *
 
@@ -148,6 +189,10 @@ instance SingI SyndicationModule where sing = SSyndicationModule
 instance ParseRssExtension SyndicationModule where
   parseRssChannelExtension = SyndicationChannel <$> syndicationInfo
   parseRssItemExtension    = pure SyndicationItem
+
+instance RenderRssExtension SyndicationModule where
+  renderRssChannelExtension = renderSyndicationInfo . channelSyndicationInfo
+  renderRssItemExtension    = const $ pure ()
 
 
 data instance RssChannelExtension SyndicationModule = SyndicationChannel { channelSyndicationInfo :: SyndicationInfo}

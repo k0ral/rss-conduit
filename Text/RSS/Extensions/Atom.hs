@@ -11,10 +11,11 @@ module Text.RSS.Extensions.Atom where
 import           Text.RSS.Extensions
 import           Text.RSS.Types
 
-import           Conduit                 hiding (throwM)
+import           Conduit                  hiding (throwM)
 import           Data.Singletons
 import           GHC.Generics
 import           Text.Atom.Conduit.Parse
+import           Text.Atom.Conduit.Render
 import           Text.Atom.Types
 import           Text.XML.Stream.Parse
 -- }}}
@@ -29,6 +30,10 @@ instance SingI AtomModule where sing = SAtomModule
 instance ParseRssExtension AtomModule where
   parseRssChannelExtension = AtomChannel <$> (manyYield' atomLink =$= headC)
   parseRssItemExtension    = AtomItem <$> (manyYield' atomLink =$= headC)
+
+instance RenderRssExtension AtomModule where
+  renderRssChannelExtension = mapM_ renderAtomLink . channelAtomLink
+  renderRssItemExtension    = mapM_ renderAtomLink . itemAtomLink
 
 data instance RssChannelExtension AtomModule = AtomChannel { channelAtomLink :: Maybe AtomLink }
   deriving(Eq, Generic, Show)

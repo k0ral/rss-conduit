@@ -16,6 +16,7 @@ import           Text.RSS.Types
 import           Text.RSS1.Conduit.Parse         as Parser
 
 import           Arbitrary
+import           Blaze.ByteString.Builder        (toByteString)
 import           Conduit
 import           Control.Exception.Safe          as Exception
 import           Control.Monad
@@ -26,10 +27,12 @@ import           Data.Conduit.List
 import           Data.Default
 import           Data.Singletons.Prelude.List
 import           Data.Text                       (Text)
+import           Data.Text.Encoding
 import           Data.Time.Calendar
 import           Data.Time.LocalTime
 import           Data.Version
 import           Data.Vinyl.Core
+import           Data.Void
 import           Data.XML.Types
 import qualified Language.Haskell.HLint          as HLint (hlint)
 import           Lens.Simple
@@ -80,14 +83,37 @@ unitTests = testGroup "Unit tests"
 
 properties :: TestTree
 properties = testGroup "Properties"
-  [ roundtripTextInputProperty
-  , roundtripImageProperty
-  , roundtripCategoryProperty
-  , roundtripEnclosureProperty
-  , roundtripSourceProperty
-  , roundtripGuidProperty
-  , roundtripItemProperty
+  [ roundtripProperty "RssTextInput" renderRssTextInput rssTextInput
+  , roundtripProperty "RssImage" renderRssImage rssImage
+  , roundtripProperty "RssCategory" renderRssCategory rssCategory
+  , roundtripProperty "RssEnclosure" renderRssEnclosure rssEnclosure
+  , roundtripProperty "RssSource" renderRssSource rssSource
+  , roundtripProperty "RssGuid" renderRssGuid rssGuid
+  , roundtripProperty "RssItem"
+      (renderRssItem :: RssItem '[] -> Source Maybe Event)
+      rssItem
+  , roundtripProperty "DublinCore"
+      (renderRssChannelExtension :: RssChannelExtension DublinCoreModule -> Source Maybe Event)
+      (Just <$> parseRssChannelExtension)
+  , roundtripProperty "Syndication"
+      (renderRssChannelExtension :: RssChannelExtension SyndicationModule -> Source Maybe Event)
+      (Just <$> parseRssChannelExtension)
+  , roundtripProperty "Atom"
+      (renderRssChannelExtension :: RssChannelExtension AtomModule -> Source Maybe Event)
+      (Just <$> parseRssChannelExtension)
+  , roundtripProperty "Content"
+      (renderRssItemExtension :: RssItemExtension ContentModule -> Source Maybe Event)
+      (Just <$> parseRssItemExtension)
   ]
+
+
+roundtripProperty :: Eq a => Arbitrary a => Show a
+                  => TestName -> (a -> Source Maybe Event) -> ConduitM Event Void Maybe (Maybe a) -> TestTree
+roundtripProperty name render parse = testProperty ("parse . render = id (" <> name <> ")") $ do
+  input <- arbitrary
+  let intermediate = fmap (decodeUtf8 . toByteString) $ runConduit $ render input =$= renderBuilder def =$= foldC
+      output = join $ runConduit $ render input =$= parse
+  return $ counterexample (show input <> " | " <> show intermediate <> " | " <> show output) $ Just input == output
 
 
 skipHoursCase :: TestTree

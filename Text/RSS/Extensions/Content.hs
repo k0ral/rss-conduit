@@ -13,8 +13,10 @@ module Text.RSS.Extensions.Content
     ContentModule(..)
   , RssChannelExtension(ContentChannel)
   , RssItemExtension(ContentItem)
-    -- * Parsers
+    -- * Parser
   , contentEncoded
+    -- * Renderer
+  , renderContentEncoded
     -- * Misc
   , namespacePrefix
   , namespaceURI
@@ -26,12 +28,15 @@ import           Text.RSS.Types
 
 import           Conduit                hiding (throwM)
 import           Control.Exception.Safe as Exception
+import           Control.Monad
 import           Data.Maybe
 import           Data.Singletons
-import           Data.Text
+import           Data.Text              (Text)
+import qualified Data.Text              as Text
 import           Data.XML.Types
 import           GHC.Generics
 import           Text.XML.Stream.Parse
+import qualified Text.XML.Stream.Render as Render
 import           URI.ByteString
 -- }}}
 
@@ -46,6 +51,9 @@ instance ParseRssExtension ContentModule where
   parseRssChannelExtension = pure ContentChannel
   parseRssItemExtension    = ContentItem <$> (manyYield' contentEncoded =$= headDefC mempty)
 
+instance RenderRssExtension ContentModule where
+  renderRssChannelExtension = const $ pure ()
+  renderRssItemExtension (ContentItem e) = unless (Text.null e) $ renderContentEncoded e
 
 data instance RssChannelExtension ContentModule = ContentChannel deriving(Eq, Generic, Ord, Show)
 data instance RssItemExtension ContentModule = ContentItem { itemContent :: Text }
@@ -66,3 +74,7 @@ contentName string = Name string (Just "http://purl.org/rss/1.0/modules/content/
 -- | Parse a @\<content:encoded\>@ element.
 contentEncoded :: MonadThrow m => ConduitM Event o m (Maybe Text)
 contentEncoded = tagIgnoreAttrs (matching (== contentName "encoded")) content
+
+-- | Render a @\<content:encoded\>@ element.
+renderContentEncoded :: Monad m => Text -> Source m Event
+renderContentEncoded = Render.tag (contentName "encoded") mempty . Render.content

@@ -35,7 +35,7 @@ library
         Text.RSS.Lens
         Text.RSS.Types
     build-depends:
-        atom-conduit -any,
+        atom-conduit >=0.5,
         base >=4.8 && <5,
         conduit -any,
         conduit-combinators -any,
@@ -59,8 +59,9 @@ test-suite  Tests
     main-is: Main.hs
     build-depends:
         rss-conduit -any,
-        atom-conduit -any,
+        atom-conduit >=0.5,
         base >=4.8 && <5,
+        blaze-builder -any,
         bytestring -any,
         conduit -any,
         conduit-combinators -any,

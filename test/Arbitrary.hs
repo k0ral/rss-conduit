@@ -5,25 +5,27 @@
 module Arbitrary (module Arbitrary) where
 
 -- {{{ Imports
-import           Data.ByteString           (ByteString)
+import           Text.RSS.Extensions.Atom
+import           Text.RSS.Extensions.Content
+import           Text.RSS.Extensions.DublinCore
+import           Text.RSS.Extensions.Syndication
+import           Text.RSS.Types
+
+import           Data.ByteString                 (ByteString)
 import           Data.Char
 import           Data.Maybe
-import           Data.MonoTraversable      (Element)
+import           Data.MonoTraversable            (Element)
 import           Data.NonNull
-import           Data.Sequences            (SemiSequence)
-import           Data.Text                 (Text, find, pack)
+import           Data.Sequences                  (SemiSequence)
+import           Data.Text                       (Text, find, pack)
 import           Data.Text.Encoding
 import           Data.Time.Clock
 import           Data.Version
 import           Data.Vinyl.Core
-
 import           GHC.Generics
-
 import           Test.QuickCheck
-import           Test.QuickCheck.Instances ()
-
-import           Text.RSS.Types
-
+import           Test.QuickCheck.Instances       ()
+import           Text.Atom.Types
 import           URI.ByteString
 -- }}}
 
@@ -163,3 +165,49 @@ instance Arbitrary RssURI where
   arbitrary = oneof [RssURI <$> (arbitrary :: Gen (URIRef Absolute)), RssURI <$> (arbitrary :: Gen (URIRef Relative))]
   shrink (RssURI a@URI{})         = RssURI <$> shrink a
   shrink (RssURI a@RelativeRef{}) = RssURI <$> shrink a
+
+instance Arbitrary DcMetaData where
+  arbitrary = DcMetaData
+    <$> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> oneof [Just <$> genTime, pure Nothing]
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+
+instance Arbitrary (RssChannelExtension DublinCoreModule) where
+  arbitrary = DublinCoreChannel <$> arbitrary
+
+instance Arbitrary SyndicationPeriod where
+  arbitrary = arbitraryBoundedEnum
+  shrink = genericShrink
+
+instance Arbitrary SyndicationInfo where
+  arbitrary = SyndicationInfo
+    <$> arbitrary
+    <*> arbitrary
+    <*> oneof [Just <$> genTime, pure Nothing]
+
+instance Arbitrary (RssChannelExtension SyndicationModule) where
+  arbitrary = SyndicationChannel <$> arbitrary
+
+instance Arbitrary AtomURI where
+  arbitrary = oneof [AtomURI <$> (arbitrary :: Gen (URIRef Absolute)), AtomURI <$> (arbitrary :: Gen (URIRef Relative))]
+
+instance Arbitrary AtomLink where
+  arbitrary = AtomLink <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+
+instance Arbitrary (RssChannelExtension AtomModule) where
+  arbitrary = AtomChannel <$> arbitrary
+
+instance Arbitrary (RssItemExtension ContentModule) where
+  arbitrary = ContentItem <$> arbitrary
