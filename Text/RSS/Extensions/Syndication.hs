@@ -101,7 +101,8 @@ renderSyndicationTag :: Monad m => Text -> Text -> Source m Event
 renderSyndicationTag name = Render.tag (syndicationName name) mempty . Render.content
 
 
-data SyndicationPeriod = Hourly | Daily | Weekly | Monthly | Yearly deriving(Eq, Generic, Ord, Show)
+data SyndicationPeriod = Hourly | Daily | Weekly | Monthly | Yearly
+  deriving (Bounded, Enum, Eq, Generic, Ord, Read, Show)
 
 asSyndicationPeriod :: MonadThrow m => Text -> m SyndicationPeriod
 asSyndicationPeriod "hourly"  = pure Hourly
@@ -124,7 +125,7 @@ data SyndicationInfo = SyndicationInfo
   { updatePeriod    :: Maybe SyndicationPeriod
   , updateFrequency :: Maybe Int
   , updateBase      :: Maybe UTCTime
-  } deriving(Eq, Generic, Ord, Show)
+  } deriving (Eq, Generic, Ord, Read, Show)
 
 -- | Construct an empty 'SyndicationInfo'.
 mkSyndicationInfo :: SyndicationInfo
@@ -196,5 +197,5 @@ instance RenderRssExtension SyndicationModule where
 
 
 data instance RssChannelExtension SyndicationModule = SyndicationChannel { channelSyndicationInfo :: SyndicationInfo}
-  deriving(Eq, Generic, Ord, Show)
-data instance RssItemExtension SyndicationModule = SyndicationItem deriving(Eq, Generic, Ord, Show)
+  deriving (Eq, Generic, Ord, Read, Show)
+data instance RssItemExtension SyndicationModule = SyndicationItem deriving (Eq, Generic, Ord, Read, Show)

@@ -67,6 +67,7 @@ data RssException = InvalidBool Text
 
 deriving instance Eq RssException
 deriving instance Generic RssException
+deriving instance Read RssException
 deriving instance Show RssException
 
 instance Exception RssException where
@@ -183,7 +184,7 @@ deriving instance Ord RssTextInput
 deriving instance Show RssTextInput
 
 data CloudProtocol = ProtocolXmlRpc | ProtocolSoap | ProtocolHttpPost
-  deriving(Eq, Generic, Ord, Show)
+  deriving(Eq, Generic, Ord, Read, Show)
 
 -- | The @\<cloud\>@ element.
 data RssCloud = RssCloud
@@ -303,6 +304,7 @@ data instance RssChannelExtensions a = RssChannelExtensions { rssChannelExtensio
 deriving instance (Eq (Rec RssChannelExtension a)) => Eq (RssChannelExtensions a)
 deriving instance (Generic (Rec RssChannelExtension a)) => Generic (RssChannelExtensions a)
 deriving instance (Ord (Rec RssChannelExtension a)) => Ord (RssChannelExtensions a)
+deriving instance (Read (Rec RssChannelExtension a)) => Read (RssChannelExtensions a)
 deriving instance (Show (Rec RssChannelExtension a)) => Show (RssChannelExtensions a)
 
 -- | Combination of multiple @\<item\>@ extensions.
@@ -312,4 +314,5 @@ data instance RssItemExtensions (a :: [*]) = RssItemExtensions { rssItemExtensio
 deriving instance (Eq (Rec RssItemExtension a)) => Eq (RssItemExtensions a)
 deriving instance (Generic (Rec RssItemExtension a)) => Generic (RssItemExtensions a)
 deriving instance (Ord (Rec RssItemExtension a)) => Ord (RssItemExtensions a)
+deriving instance (Read (Rec RssItemExtension a)) => Read (RssItemExtensions a)
 deriving instance (Show (Rec RssItemExtension a)) => Show (RssItemExtensions a)
