@@ -4,6 +4,7 @@
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE QuasiQuotes         #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications    #-}
 -- {{{ Imports
 import           Text.RSS.Conduit.Parse          as Parser
 import           Text.RSS.Conduit.Render         as Renderer
@@ -95,16 +96,16 @@ properties = testGroup "Properties"
       (renderRssItem :: RssItem '[] -> Source Maybe Event)
       rssItem
   , roundtripProperty "DublinCore"
-      (renderRssChannelExtension :: RssChannelExtension DublinCoreModule -> Source Maybe Event)
+      (renderRssChannelExtension @DublinCoreModule)
       (Just <$> parseRssChannelExtension)
   , roundtripProperty "Syndication"
-      (renderRssChannelExtension :: RssChannelExtension SyndicationModule -> Source Maybe Event)
+      (renderRssChannelExtension @SyndicationModule)
       (Just <$> parseRssChannelExtension)
   , roundtripProperty "Atom"
-      (renderRssChannelExtension :: RssChannelExtension AtomModule -> Source Maybe Event)
+      (renderRssChannelExtension @AtomModule)
       (Just <$> parseRssChannelExtension)
   , roundtripProperty "Content"
-      (renderRssItemExtension :: RssItemExtension ContentModule -> Source Maybe Event)
+      (renderRssItemExtension @ContentModule)
       (Just <$> parseRssItemExtension)
   ]
 
