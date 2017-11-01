@@ -8,8 +8,6 @@
 {-# LANGUAGE TypeOperators       #-}
 -- | Support for RSS extensions.
 -- Cf specification at <http://web.resource.org/rss/1.0/modules/>.
---
--- For now, only parsing is implemented. Rendering will be implemented later.
 module Text.RSS.Extensions where
 
 -- {{{ Imports
