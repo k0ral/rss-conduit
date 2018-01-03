@@ -36,7 +36,6 @@ import           Data.Version
 import           Data.Vinyl.Core
 import           Data.Void
 import           Data.XML.Types
-import qualified Language.Haskell.HLint          as HLint (hlint)
 import           Lens.Simple
 import           System.IO
 import           System.Timeout
@@ -55,7 +54,6 @@ main :: IO ()
 main = defaultMain $ testGroup "Tests"
   [ unitTests
   , properties
-  , hlint
   ]
 
 unitTests :: TestTree
@@ -519,12 +517,6 @@ multipleExtensionsCase = testCase "Multiple extensions" $ do
                 ]
         url = AtomURI [uri|http://dallas.example.com/rss.xml|]
         link = AtomLink url "self" "application/rss+xml" mempty mempty mempty
-
-
-hlint :: TestTree
-hlint = testCase "HLint check" $ do
-  result <- HLint.hlint [ "test/", "Text/" ]
-  Prelude.null result @?= True
 
 
 roundtripTextInputProperty :: TestTree
