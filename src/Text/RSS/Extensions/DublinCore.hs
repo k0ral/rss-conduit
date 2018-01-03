@@ -22,7 +22,7 @@ module Text.RSS.Extensions.DublinCore
 import           Text.RSS.Extensions
 import           Text.RSS.Types
 
-import           Conduit                            hiding (throwM)
+import           Conduit
 import           Control.Exception.Safe             as Exception
 import           Control.Monad
 import           Control.Monad.Fix

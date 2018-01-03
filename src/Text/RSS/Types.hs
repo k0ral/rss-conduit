@@ -43,7 +43,7 @@ import           Control.Exception.Safe
 import           Data.Semigroup
 import           Data.Set
 import           Data.Singletons.Prelude.List
-import           Data.Text                    hiding (map)
+import           Data.Text                    (Text, unpack)
 import           Data.Time.Clock
 import           Data.Time.LocalTime          ()
 import           Data.Version

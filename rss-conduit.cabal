@@ -53,6 +53,7 @@ library
         xml-conduit >=1.5,
         xml-types -any
     default-language: Haskell2010
+    hs-source-dirs: src
 
 test-suite  Tests
     type: exitcode-stdio-1.0

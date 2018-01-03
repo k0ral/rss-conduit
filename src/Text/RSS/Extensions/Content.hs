@@ -26,7 +26,7 @@ module Text.RSS.Extensions.Content
 import           Text.RSS.Extensions
 import           Text.RSS.Types
 
-import           Conduit                hiding (throwM)
+import           Conduit                (ConduitM, Source, headDefC, (=$=))
 import           Control.Exception.Safe as Exception
 import           Control.Monad
 import           Data.Maybe

@@ -29,13 +29,13 @@ import           Text.RSS.Types
 import           Conduit                      hiding (throwM)
 import           Control.Applicative          hiding (many)
 import           Control.Exception.Safe       as Exception
-import           Control.Monad                hiding (foldM)
+import           Control.Monad                (void)
 import           Control.Monad.Fix
 import           Data.Conduit
 import           Data.List.NonEmpty           (NonEmpty (..), nonEmpty)
 import           Data.Maybe
 import           Data.Monoid
-import           Data.Set                     hiding (fold)
+import           Data.Set                     (Set, fromList)
 import           Data.Text                    as Text
 import           Data.Text.Encoding
 import           Data.Time.Clock
@@ -44,7 +44,6 @@ import           Data.Time.RFC822
 import           Data.Version
 import           Data.XML.Types
 import           Lens.Simple
-import           Prelude                      hiding (last, lookup)
 import           Safe
 import           Text.ParserCombinators.ReadP (readP_to_S)
 import           Text.Read                    (readMaybe)

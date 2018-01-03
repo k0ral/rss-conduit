@@ -11,7 +11,7 @@ module Text.RSS.Extensions.Atom where
 import           Text.RSS.Extensions
 import           Text.RSS.Types
 
-import           Conduit                  hiding (throwM)
+import           Conduit                  (headC, (=$=))
 import           Data.Singletons
 import           GHC.Generics
 import           Text.Atom.Conduit.Parse
