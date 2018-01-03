@@ -33,6 +33,8 @@ import           Text.XML.Stream.Parse
 import           URI.ByteString
 -- }}}
 
+-- * Parsing
+
 -- | Class of RSS extensions that can be parsed.
 class ParseRssExtension a where
   -- | This parser will be fed with all 'Event's within the @\<channel\>@ element.
@@ -44,16 +46,6 @@ class ParseRssExtension a where
 
 -- | Requirement on a list of extension tags to be able to parse and combine them.
 type ParseRssExtensions (e :: [*]) = (AllConstrained ParseRssExtension e, SingI e)
-
--- | Class of RSS extensions that can be rendered.
-class RenderRssExtension e where
-  -- | Render extension for the @\<channel\>@ element.
-  renderRssChannelExtension :: Monad m => RssChannelExtension e -> Source m Event
-  -- | Render extension for the @\<item\>@ element.
-  renderRssItemExtension :: Monad m => RssItemExtension e -> Source m Event
-
--- | Requirement on a list of extension tags to be able to render them.
-type RenderRssExtensions (e :: [*]) = (AllConstrained RenderRssExtension e)
 
 -- | Parse a combination of RSS extensions at @\<channel\>@ level.
 parseRssChannelExtensions :: ParseRssExtensions e => MonadThrow m => ConduitM Event o m (RssChannelExtensions e)
@@ -74,6 +66,19 @@ parseRssItemExtensions = f sing where
   f (SCons _ es) = fmap RssItemExtensions $ getZipConduit $ (:&)
     <$> ZipConduit parseRssItemExtension
     <*> ZipConduit (rssItemExtension <$> f es)
+
+
+-- * Rendering
+
+-- | Class of RSS extensions that can be rendered.
+class RenderRssExtension e where
+  -- | Render extension for the @\<channel\>@ element.
+  renderRssChannelExtension :: Monad m => RssChannelExtension e -> Source m Event
+  -- | Render extension for the @\<item\>@ element.
+  renderRssItemExtension :: Monad m => RssItemExtension e -> Source m Event
+
+-- | Requirement on a list of extension tags to be able to render them.
+type RenderRssExtensions (e :: [*]) = (AllConstrained RenderRssExtension e)
 
 -- | Render a set of @\<channel\>@ extensions.
 renderRssChannelExtensions :: Monad m => RenderRssExtensions e => RssChannelExtensions e -> Source m Event
