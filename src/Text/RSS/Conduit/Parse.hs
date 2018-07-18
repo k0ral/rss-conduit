@@ -40,6 +40,7 @@ import           Data.Text                    as Text
 import           Data.Text.Encoding
 import           Data.Time.Clock
 import           Data.Time.LocalTime
+import           Data.Time.RFC3339
 import           Data.Time.RFC822
 import           Data.Version
 import           Data.XML.Types
@@ -88,7 +89,7 @@ tagName' t = tag' (matching $ \n -> nameLocalName n == t)
 tagDate :: (MonadThrow m) => NameMatcher a -> ConduitM Event o m (Maybe UTCTime)
 tagDate name = tagIgnoreAttrs name $ fmap zonedTimeToUTC $ do
   text <- content
-  maybe (throw $ InvalidTime text) return $ parseTimeRFC822 text
+  maybe (throw $ InvalidTime text) return $ parseTimeRFC822 text <|> parseTimeRFC3339 text
 
 headRequiredC :: MonadThrow m => Text -> Consumer a m a
 headRequiredC e = maybe (throw $ MissingElement e) return =<< headC
