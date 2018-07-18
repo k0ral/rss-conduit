@@ -91,10 +91,10 @@ tagDate name = tagIgnoreAttrs name $ fmap zonedTimeToUTC $ do
   text <- content
   maybe (throw $ InvalidTime text) return $ parseTimeRFC822 text <|> parseTimeRFC3339 text
 
-headRequiredC :: MonadThrow m => Text -> Consumer a m a
+headRequiredC :: MonadThrow m => Text -> ConduitT a b m a
 headRequiredC e = maybe (throw $ MissingElement e) return =<< headC
 
-projectC :: Monad m => Fold a a' b b' -> Conduit a m b
+projectC :: Monad m => Fold a a' b b' -> ConduitT a b m ()
 projectC prism = fix $ \recurse -> do
   item <- await
   case (item, item ^? (_Just . prism)) of
@@ -107,12 +107,12 @@ projectC prism = fix $ \recurse -> do
 -- | Parse a @\<skipHours\>@ element.
 rssSkipHours :: MonadThrow m => ConduitM Event o m (Maybe (Set Hour))
 rssSkipHours = tagIgnoreAttrs "skipHours" $
-  fromList <$> (manyYield' (tagIgnoreAttrs "hour" $ content >>= asInt >>= asHour) =$= sinkList)
+  fromList <$> (manyYield' (tagIgnoreAttrs "hour" $ content >>= asInt >>= asHour) .| sinkList)
 
 -- | Parse a @\<skipDays\>@ element.
 rssSkipDays :: MonadThrow m => ConduitM Event o m (Maybe (Set Day))
 rssSkipDays = tagIgnoreAttrs "skipDays" $
-  fromList <$> (manyYield' (tagIgnoreAttrs "day" $ content >>= asDay) =$= sinkList)
+  fromList <$> (manyYield' (tagIgnoreAttrs "day" $ content >>= asDay) .| sinkList)
 
 
 data TextInputPiece = TextInputTitle Text | TextInputDescription Text
@@ -122,12 +122,12 @@ makeTraversals ''TextInputPiece
 
 -- | Parse a @\<textInput\>@ element.
 rssTextInput :: MonadThrow m => ConduitM Event o m (Maybe RssTextInput)
-rssTextInput = tagIgnoreAttrs "textInput" $ (manyYield' (choose piece) =$= parser) <* many ignoreAnyTreeContent where
+rssTextInput = tagIgnoreAttrs "textInput" $ (manyYield' (choose piece) .| parser) <* many ignoreAnyTreeContent where
   parser = getZipConduit $ RssTextInput
-    <$> ZipConduit (projectC _TextInputTitle =$= headRequiredC "Missing <title> element")
-    <*> ZipConduit (projectC _TextInputDescription =$= headRequiredC "Missing <description> element")
-    <*> ZipConduit (projectC _TextInputName =$= headRequiredC "Missing <name> element")
-    <*> ZipConduit (projectC _TextInputLink =$= headRequiredC "Missing <link> element")
+    <$> ZipConduit (projectC _TextInputTitle .| headRequiredC "Missing <title> element")
+    <*> ZipConduit (projectC _TextInputDescription .| headRequiredC "Missing <description> element")
+    <*> ZipConduit (projectC _TextInputName .| headRequiredC "Missing <name> element")
+    <*> ZipConduit (projectC _TextInputLink .| headRequiredC "Missing <link> element")
   piece = [ fmap TextInputTitle <$> tagIgnoreAttrs "title" content
           , fmap TextInputDescription <$> tagIgnoreAttrs "description" content
           , fmap TextInputName <$> tagIgnoreAttrs "name" content
@@ -143,14 +143,14 @@ makeTraversals ''ImagePiece
 
 -- | Parse an @\<image\>@ element.
 rssImage :: (MonadThrow m) => ConduitM Event o m (Maybe RssImage)
-rssImage = tagIgnoreAttrs "image" $ (manyYield' (choose piece) =$= parser) <* many ignoreAnyTreeContent where
+rssImage = tagIgnoreAttrs "image" $ (manyYield' (choose piece) .| parser) <* many ignoreAnyTreeContent where
   parser = getZipConduit $ RssImage
-    <$> ZipConduit (projectC _ImageUri =$= headRequiredC "Missing <url> element")
-    <*> ZipConduit (projectC _ImageTitle =$= headDefC "Unnamed image")  -- Lenient
-    <*> ZipConduit (projectC _ImageLink =$= headDefC nullURI)  -- Lenient
-    <*> ZipConduit (projectC _ImageWidth =$= headC)
-    <*> ZipConduit (projectC _ImageHeight =$= headC)
-    <*> ZipConduit (projectC _ImageDescription =$= headDefC "")
+    <$> ZipConduit (projectC _ImageUri .| headRequiredC "Missing <url> element")
+    <*> ZipConduit (projectC _ImageTitle .| headDefC "Unnamed image")  -- Lenient
+    <*> ZipConduit (projectC _ImageLink .| headDefC nullURI)  -- Lenient
+    <*> ZipConduit (projectC _ImageWidth .| headC)
+    <*> ZipConduit (projectC _ImageHeight .| headC)
+    <*> ZipConduit (projectC _ImageDescription .| headDefC "")
   piece = [ fmap ImageUri <$> tagIgnoreAttrs "url" (content >>= asRssURI)
           , fmap ImageTitle <$> tagIgnoreAttrs "title" content
           , fmap ImageLink <$> tagIgnoreAttrs "link" (content >>= asRssURI)
@@ -206,19 +206,19 @@ makeTraversals ''ItemPiece
 --
 -- RSS extensions are automatically parsed based on the inferred result type.
 rssItem :: ParseRssExtensions e => MonadThrow m => ConduitM Event o m (Maybe (RssItem e))
-rssItem = tagIgnoreAttrs "item" $ (manyYield' (choose piece) =$= parser) <* many ignoreAnyTreeContent where
+rssItem = tagIgnoreAttrs "item" $ (manyYield' (choose piece) .| parser) <* many ignoreAnyTreeContent where
   parser = getZipConduit $ RssItem
-    <$> ZipConduit (projectC _ItemTitle =$= headDefC "")
-    <*> ZipConduit (projectC _ItemLink =$= headC)
-    <*> ZipConduit (projectC _ItemDescription =$= headDefC "")
-    <*> ZipConduit (projectC _ItemAuthor =$= headDefC "")
-    <*> ZipConduit (projectC _ItemCategory =$= sinkList)
-    <*> ZipConduit (projectC _ItemComments =$= headC)
-    <*> ZipConduit (projectC _ItemEnclosure =$= sinkList)
-    <*> ZipConduit (projectC _ItemGuid =$= headC)
-    <*> ZipConduit (projectC _ItemPubDate =$= headC)
-    <*> ZipConduit (projectC _ItemSource =$= headC)
-    <*> ZipConduit (projectC _ItemOther =$= concatC =$= parseRssItemExtensions)
+    <$> ZipConduit (projectC _ItemTitle .| headDefC "")
+    <*> ZipConduit (projectC _ItemLink .| headC)
+    <*> ZipConduit (projectC _ItemDescription .| headDefC "")
+    <*> ZipConduit (projectC _ItemAuthor .| headDefC "")
+    <*> ZipConduit (projectC _ItemCategory .| sinkList)
+    <*> ZipConduit (projectC _ItemComments .| headC)
+    <*> ZipConduit (projectC _ItemEnclosure .| sinkList)
+    <*> ZipConduit (projectC _ItemGuid .| headC)
+    <*> ZipConduit (projectC _ItemPubDate .| headC)
+    <*> ZipConduit (projectC _ItemSource .| headC)
+    <*> ZipConduit (projectC _ItemOther .| concatC .| parseRssItemExtensions)
   piece = [ fmap ItemTitle <$> tagIgnoreAttrs "title" content
           , fmap ItemLink <$> tagIgnoreAttrs "link" (content >>= asRssURI)
           , fmap ItemDescription <$> tagIgnoreAttrs "description" content
@@ -229,7 +229,7 @@ rssItem = tagIgnoreAttrs "item" $ (manyYield' (choose piece) =$= parser) <* many
           , fmap ItemGuid <$> rssGuid
           , fmap ItemPubDate <$> tagDate "pubDate"
           , fmap ItemSource <$> rssSource
-          , fmap ItemOther . nonEmpty <$> (void takeAnyTreeContent =$= sinkList)
+          , fmap ItemOther . nonEmpty <$> (void takeAnyTreeContent .| sinkList)
           ]
 
 
@@ -248,29 +248,29 @@ makeTraversals ''ChannelPiece
 --
 -- RSS extensions are automatically parsed based on the inferred result type.
 rssDocument :: ParseRssExtensions e => MonadThrow m => ConduitM Event o m (Maybe (RssDocument e))
-rssDocument = tagName' "rss" attributes $ \version -> force "Missing <channel>" $ tagIgnoreAttrs "channel" (manyYield' (choose piece) =$= parser version) <* many ignoreAnyTreeContent where
+rssDocument = tagName' "rss" attributes $ \version -> force "Missing <channel>" $ tagIgnoreAttrs "channel" (manyYield' (choose piece) .| parser version) <* many ignoreAnyTreeContent where
   parser version = getZipConduit $ RssDocument version
-    <$> ZipConduit (projectC _ChannelTitle =$= headRequiredC "Missing <title> element")
-    <*> ZipConduit (projectC _ChannelLink =$= headRequiredC "Missing <link> element")
-    <*> ZipConduit (projectC _ChannelDescription =$= headDefC "")  -- Lenient
-    <*> ZipConduit (projectC _ChannelItem =$= sinkList)
-    <*> ZipConduit (projectC _ChannelLanguage =$= headDefC "")
-    <*> ZipConduit (projectC _ChannelCopyright =$= headDefC "")
-    <*> ZipConduit (projectC _ChannelManagingEditor =$= headDefC "")
-    <*> ZipConduit (projectC _ChannelWebmaster =$= headDefC "")
-    <*> ZipConduit (projectC _ChannelPubDate =$= headC)
-    <*> ZipConduit (projectC _ChannelLastBuildDate =$= headC)
-    <*> ZipConduit (projectC _ChannelCategory =$= sinkList)
-    <*> ZipConduit (projectC _ChannelGenerator =$= headDefC "")
-    <*> ZipConduit (projectC _ChannelDocs =$= headC)
-    <*> ZipConduit (projectC _ChannelCloud =$= headC)
-    <*> ZipConduit (projectC _ChannelTtl =$= headC)
-    <*> ZipConduit (projectC _ChannelImage =$= headC)
-    <*> ZipConduit (projectC _ChannelRating =$= headDefC "")
-    <*> ZipConduit (projectC _ChannelTextInput =$= headC)
-    <*> ZipConduit (projectC _ChannelSkipHours =$= headDefC mempty)
-    <*> ZipConduit (projectC _ChannelSkipDays =$= headDefC mempty)
-    <*> ZipConduit (projectC _ChannelOther =$= concatC =$= parseRssChannelExtensions)
+    <$> ZipConduit (projectC _ChannelTitle .| headRequiredC "Missing <title> element")
+    <*> ZipConduit (projectC _ChannelLink .| headRequiredC "Missing <link> element")
+    <*> ZipConduit (projectC _ChannelDescription .| headDefC "")  -- Lenient
+    <*> ZipConduit (projectC _ChannelItem .| sinkList)
+    <*> ZipConduit (projectC _ChannelLanguage .| headDefC "")
+    <*> ZipConduit (projectC _ChannelCopyright .| headDefC "")
+    <*> ZipConduit (projectC _ChannelManagingEditor .| headDefC "")
+    <*> ZipConduit (projectC _ChannelWebmaster .| headDefC "")
+    <*> ZipConduit (projectC _ChannelPubDate .| headC)
+    <*> ZipConduit (projectC _ChannelLastBuildDate .| headC)
+    <*> ZipConduit (projectC _ChannelCategory .| sinkList)
+    <*> ZipConduit (projectC _ChannelGenerator .| headDefC "")
+    <*> ZipConduit (projectC _ChannelDocs .| headC)
+    <*> ZipConduit (projectC _ChannelCloud .| headC)
+    <*> ZipConduit (projectC _ChannelTtl .| headC)
+    <*> ZipConduit (projectC _ChannelImage .| headC)
+    <*> ZipConduit (projectC _ChannelRating .| headDefC "")
+    <*> ZipConduit (projectC _ChannelTextInput .| headC)
+    <*> ZipConduit (projectC _ChannelSkipHours .| headDefC mempty)
+    <*> ZipConduit (projectC _ChannelSkipDays .| headDefC mempty)
+    <*> ZipConduit (projectC _ChannelOther .| concatC .| parseRssChannelExtensions)
   piece = [ fmap ChannelTitle <$> tagIgnoreAttrs "title" content
           , fmap ChannelLink <$> tagIgnoreAttrs "link" (content >>= asRssURI)
           , fmap ChannelDescription <$> tagIgnoreAttrs "description" content
@@ -291,6 +291,6 @@ rssDocument = tagName' "rss" attributes $ \version -> force "Missing <channel>" 
           , fmap ChannelTextInput <$> rssTextInput
           , fmap ChannelSkipHours <$> rssSkipHours
           , fmap ChannelSkipDays <$> rssSkipDays
-          , fmap ChannelOther . nonEmpty <$> (void takeAnyTreeContent =$= sinkList)
+          , fmap ChannelOther . nonEmpty <$> (void takeAnyTreeContent .| sinkList)
           ]
   attributes = (requireAttr "version" >>= asVersion) <* ignoreAttrs

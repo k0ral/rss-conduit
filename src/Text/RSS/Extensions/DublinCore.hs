@@ -43,7 +43,7 @@ import           URI.ByteString
 -- }}}
 
 -- {{{ Utils
-projectC :: Monad m => Fold a a' b b' -> Conduit a m b
+projectC :: Monad m => Fold a a' b b' -> ConduitT a b m ()
 projectC prism = fix $ \recurse -> do
   item <- await
   case (item, item ^? (_Just . prism)) of
@@ -84,24 +84,24 @@ data ElementPiece = ElementContributor Text | ElementCoverage Text | ElementCrea
 makeTraversals ''ElementPiece
 
 -- | Parse a set of Dublin Core metadata elements.
-dcMetadata :: MonadThrow m => ConduitM Event o m DcMetaData
-dcMetadata = manyYield' (choose piece) =$= parser where
+dcMetadata :: MonadThrow m => ConduitT Event o m DcMetaData
+dcMetadata = manyYield' (choose piece) .| parser where
   parser = getZipConduit $ DcMetaData
-    <$> ZipConduit (projectC _ElementContributor =$= headDefC "")
-    <*> ZipConduit (projectC _ElementCoverage =$= headDefC "")
-    <*> ZipConduit (projectC _ElementCreator =$= headDefC "")
-    <*> ZipConduit (projectC _ElementDate =$= headC)
-    <*> ZipConduit (projectC _ElementDescription =$= headDefC "")
-    <*> ZipConduit (projectC _ElementFormat =$= headDefC "")
-    <*> ZipConduit (projectC _ElementIdentifier =$= headDefC "")
-    <*> ZipConduit (projectC _ElementLanguage =$= headDefC "")
-    <*> ZipConduit (projectC _ElementPublisher =$= headDefC "")
-    <*> ZipConduit (projectC _ElementRelation =$= headDefC "")
-    <*> ZipConduit (projectC _ElementRights =$= headDefC "")
-    <*> ZipConduit (projectC _ElementSource =$= headDefC "")
-    <*> ZipConduit (projectC _ElementSubject =$= headDefC "")
-    <*> ZipConduit (projectC _ElementTitle =$= headDefC "")
-    <*> ZipConduit (projectC _ElementType =$= headDefC "")
+    <$> ZipConduit (projectC _ElementContributor .| headDefC "")
+    <*> ZipConduit (projectC _ElementCoverage .| headDefC "")
+    <*> ZipConduit (projectC _ElementCreator .| headDefC "")
+    <*> ZipConduit (projectC _ElementDate .| headC)
+    <*> ZipConduit (projectC _ElementDescription .| headDefC "")
+    <*> ZipConduit (projectC _ElementFormat .| headDefC "")
+    <*> ZipConduit (projectC _ElementIdentifier .| headDefC "")
+    <*> ZipConduit (projectC _ElementLanguage .| headDefC "")
+    <*> ZipConduit (projectC _ElementPublisher .| headDefC "")
+    <*> ZipConduit (projectC _ElementRelation .| headDefC "")
+    <*> ZipConduit (projectC _ElementRights .| headDefC "")
+    <*> ZipConduit (projectC _ElementSource .| headDefC "")
+    <*> ZipConduit (projectC _ElementSubject .| headDefC "")
+    <*> ZipConduit (projectC _ElementTitle .| headDefC "")
+    <*> ZipConduit (projectC _ElementType .| headDefC "")
   piece = [ fmap ElementContributor <$> DC.elementContributor
           , fmap ElementCoverage <$> DC.elementCoverage
           , fmap ElementCreator <$> DC.elementCreator
@@ -120,7 +120,7 @@ dcMetadata = manyYield' (choose piece) =$= parser where
           ]
 
 -- | Render a set of Dublin Core metadata elements.
-renderDcMetadata :: Monad m => DcMetaData -> Source m Event
+renderDcMetadata :: Monad m => DcMetaData -> ConduitT () Event m ()
 renderDcMetadata DcMetaData{..} = do
   unless (Text.null elementContributor) $ renderElementContributor elementContributor
   unless (Text.null elementCoverage) $ renderElementCoverage elementCoverage

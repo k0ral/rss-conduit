@@ -40,7 +40,7 @@ import           URI.ByteString
 -- }}}
 
 -- | Render the top-level @\<rss\>@ element.
-renderRssDocument :: Monad m => RenderRssExtensions e => RssDocument e -> Source m Event
+renderRssDocument :: Monad m => RenderRssExtensions e => RssDocument e -> ConduitT () Event m ()
 renderRssDocument d = tag "rss" (attr "version" . pack . showVersion $ d^.documentVersionL) $
   tag "channel" mempty $ do
     textTag "title" $ d^.channelTitleL
@@ -66,7 +66,7 @@ renderRssDocument d = tag "rss" (attr "version" . pack . showVersion $ d^.docume
     renderRssChannelExtensions $ d^.channelExtensionsL
 
 -- | Render an @\<item\>@ element.
-renderRssItem :: Monad m => RenderRssExtensions e => RssItem e -> Source m Event
+renderRssItem :: Monad m => RenderRssExtensions e => RssItem e -> ConduitT () Event m ()
 renderRssItem i = tag "item" mempty $ do
   optionalTextTag "title" $ i^.itemTitleL
   forM_ (i^.itemLinkL) $ textTag "link" . renderRssURI
@@ -81,24 +81,24 @@ renderRssItem i = tag "item" mempty $ do
   renderRssItemExtensions $ i^.itemExtensionsL
 
 -- | Render a @\<source\>@ element.
-renderRssSource :: (Monad m) => RssSource -> Source m Event
+renderRssSource :: (Monad m) => RssSource -> ConduitT () Event m ()
 renderRssSource s = tag "source" (attr "url" $ renderRssURI $ s^.sourceUrlL) . content $ s^.sourceNameL
 
 -- | Render an @\<enclosure\>@ element.
-renderRssEnclosure :: (Monad m) => RssEnclosure -> Source m Event
+renderRssEnclosure :: (Monad m) => RssEnclosure -> ConduitT () Event m ()
 renderRssEnclosure e = tag "enclosure" attributes mempty where
   attributes = attr "url" (renderRssURI $ e^.enclosureUrlL)
     <> attr "length" (tshow $ e^.enclosureLengthL)
     <> attr "type" (e^.enclosureTypeL)
 
 -- | Render a @\<guid\>@ element.
-renderRssGuid :: (Monad m) => RssGuid -> Source m Event
+renderRssGuid :: (Monad m) => RssGuid -> ConduitT () Event m ()
 renderRssGuid (GuidUri u) = tag "guid" (attr "isPermaLink" "true") $ content $ renderRssURI u
 renderRssGuid (GuidText t) = tag "guid" mempty $ content t
 
 
 -- | Render a @\<cloud\>@ element.
-renderRssCloud :: Monad m => RssCloud -> Source m Event
+renderRssCloud :: Monad m => RssCloud -> ConduitT () Event m ()
 renderRssCloud c = tag "cloud" attributes $ return () where
   attributes = attr "domain" domain
     <> optionalAttr "port" port
@@ -124,11 +124,11 @@ renderRssCloud c = tag "cloud" attributes $ return () where
   describe ProtocolHttpPost = "http-post"
 
 -- | Render a @\<category\>@ element.
-renderRssCategory :: (Monad m) => RssCategory -> Source m Event
+renderRssCategory :: (Monad m) => RssCategory -> ConduitT () Event m ()
 renderRssCategory c = tag "category" (attr "domain" $ c^.categoryDomainL) . content $ c^.categoryNameL
 
 -- | Render an @\<image\>@ element.
-renderRssImage :: (Monad m) => RssImage -> Source m Event
+renderRssImage :: (Monad m) => RssImage -> ConduitT () Event m ()
 renderRssImage i = tag "image" mempty $ do
   textTag "url" $ renderRssURI $ i^.imageUriL
   textTag "title" $ i^.imageTitleL
@@ -138,7 +138,7 @@ renderRssImage i = tag "image" mempty $ do
   optionalTextTag "description" $ i^.imageDescriptionL
 
 -- | Render a @\<textInput\>@ element.
-renderRssTextInput :: (Monad m) => RssTextInput -> Source m Event
+renderRssTextInput :: (Monad m) => RssTextInput -> ConduitT () Event m ()
 renderRssTextInput t = tag "textInput" mempty $ do
   textTag "title" $ t^.textInputTitleL
   textTag "description" $ t^.textInputDescriptionL
@@ -146,11 +146,11 @@ renderRssTextInput t = tag "textInput" mempty $ do
   textTag "link" $ renderRssURI $ t^.textInputLinkL
 
 -- | Render a @\<skipDays\>@ element.
-renderRssSkipDays :: (Monad m) => Set Day -> Source m Event
+renderRssSkipDays :: (Monad m) => Set Day -> ConduitT () Event m ()
 renderRssSkipDays s = unless (Set.null s) $ tag "skipDays" mempty $ forM_ s $ textTag "day" . tshow
 
 -- | Render a @\<skipHours\>@ element.
-renderRssSkipHours :: (Monad m) => Set Hour -> Source m Event
+renderRssSkipHours :: (Monad m) => Set Hour -> ConduitT () Event m ()
 renderRssSkipHours s = unless (Set.null s) $ tag "skipHour" mempty $ forM_ s $ textTag "hour" . tshow
 
 
@@ -158,13 +158,13 @@ renderRssSkipHours s = unless (Set.null s) $ tag "skipHour" mempty $ forM_ s $ t
 tshow :: Show a => a -> Text
 tshow = pack . show
 
-textTag :: (Monad m) => Name -> Text -> Source m Event
+textTag :: (Monad m) => Name -> Text -> ConduitT () Event m ()
 textTag name = tag name mempty . content
 
-optionalTextTag :: Monad m => Name -> Text -> Source m Event
+optionalTextTag :: Monad m => Name -> Text -> ConduitT () Event m ()
 optionalTextTag name value = unless (Text.null value) $ textTag name value
 
-dateTag :: (Monad m) => Name -> UTCTime -> Source m Event
+dateTag :: (Monad m) => Name -> UTCTime -> ConduitT () Event m ()
 dateTag name = tag name mempty . content . formatTimeRFC822 . utcToZonedTime utc
 
 renderRssURI :: RssURI -> Text

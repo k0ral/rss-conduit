@@ -69,7 +69,7 @@ asDate text = maybe (throw $ InvalidTime text) (return . zonedTimeToUTC) $
 asInt :: MonadThrow m => Text -> m Int
 asInt t = maybe (throwM $ InvalidInt t) return . readMaybe $ unpack t
 
-projectC :: Monad m => Fold a a' b b' -> Conduit a m b
+projectC :: Monad m => Fold a a' b b' -> ConduitT a b m ()
 projectC prism = fix $ \recurse -> do
   item <- await
   case (item, item ^? (_Just . prism)) of
@@ -94,10 +94,10 @@ namespaceURI = uri where Right uri = parseURI laxURIParserOptions "http://purl.o
 syndicationName :: Text -> Name
 syndicationName string = Name string (Just "http://purl.org/rss/1.0/modules/syndication/") (Just namespacePrefix)
 
-syndicationTag :: MonadThrow m => Text -> ConduitM Event o m a -> ConduitM Event o m (Maybe a)
+syndicationTag :: MonadThrow m => Text -> ConduitT Event o m a -> ConduitT Event o m (Maybe a)
 syndicationTag name = tagIgnoreAttrs (matching (== syndicationName name))
 
-renderSyndicationTag :: Monad m => Text -> Text -> Source m Event
+renderSyndicationTag :: Monad m => Text -> Text -> ConduitT () Event m ()
 renderSyndicationTag name = Render.tag (syndicationName name) mempty . Render.content
 
 
@@ -137,46 +137,46 @@ data ElementPiece = ElementPeriod SyndicationPeriod | ElementFrequency Int | Ele
 makeTraversals ''ElementPiece
 
 -- | Parse all __Syndication__ elements.
-syndicationInfo :: MonadThrow m => ConduitM Event o m SyndicationInfo
-syndicationInfo = manyYield' (choose piece) =$= parser where
+syndicationInfo :: MonadThrow m => ConduitT Event o m SyndicationInfo
+syndicationInfo = manyYield' (choose piece) .| parser where
   parser = getZipConduit $ SyndicationInfo
-    <$> ZipConduit (projectC _ElementPeriod =$= headC)
-    <*> ZipConduit (projectC _ElementFrequency =$= headC)
-    <*> ZipConduit (projectC _ElementBase =$= headC)
+    <$> ZipConduit (projectC _ElementPeriod .| headC)
+    <*> ZipConduit (projectC _ElementFrequency .| headC)
+    <*> ZipConduit (projectC _ElementBase .| headC)
   piece = [ fmap ElementPeriod <$> syndicationPeriod
           , fmap ElementFrequency <$> syndicationFrequency
           , fmap ElementBase <$> syndicationBase
           ]
 
 -- | Parse a @\<sy:updatePeriod\>@ element.
-syndicationPeriod :: MonadThrow m => ConduitM Event o m (Maybe SyndicationPeriod)
+syndicationPeriod :: MonadThrow m => ConduitT Event o m (Maybe SyndicationPeriod)
 syndicationPeriod = syndicationTag "updatePeriod" (content >>= asSyndicationPeriod)
 
 -- | Parse a @\<sy:updateFrequency\>@ element.
-syndicationFrequency :: MonadThrow m => ConduitM Event o m (Maybe Int)
+syndicationFrequency :: MonadThrow m => ConduitT Event o m (Maybe Int)
 syndicationFrequency = syndicationTag "updateFrequency" (content >>= asInt)
 
 -- | Parse a @\<sy:updateBase\>@ element.
-syndicationBase :: MonadThrow m => ConduitM Event o m (Maybe UTCTime)
+syndicationBase :: MonadThrow m => ConduitT Event o m (Maybe UTCTime)
 syndicationBase = syndicationTag "updateBase" (content >>= asDate)
 
 -- | Render all __Syndication__ elements.
-renderSyndicationInfo :: Monad m => SyndicationInfo -> Source m Event
+renderSyndicationInfo :: Monad m => SyndicationInfo -> ConduitT () Event m ()
 renderSyndicationInfo SyndicationInfo{..} = do
   forM_ updatePeriod renderSyndicationPeriod
   forM_ updateFrequency renderSyndicationFrequency
   forM_ updateBase renderSyndicationBase
 
 -- | Render a @\<sy:updatePeriod\>@ element.
-renderSyndicationPeriod :: Monad m => SyndicationPeriod -> Source m Event
+renderSyndicationPeriod :: Monad m => SyndicationPeriod -> ConduitT () Event m ()
 renderSyndicationPeriod = renderSyndicationTag "updatePeriod" . fromSyndicationPeriod
 
 -- | Render a @\<sy:updateFrequency\>@ element.
-renderSyndicationFrequency :: Monad m => Int -> Source m Event
+renderSyndicationFrequency :: Monad m => Int -> ConduitT () Event m ()
 renderSyndicationFrequency = renderSyndicationTag "updateFrequency" . tshow
 
 -- | Render a @\<sy:updateBase\>@ element.
-renderSyndicationBase :: Monad m => UTCTime -> Source m Event
+renderSyndicationBase :: Monad m => UTCTime -> ConduitT () Event m ()
 renderSyndicationBase = renderSyndicationTag "updateBase" . formatTimeRFC822 . utcToZonedTime utc
 
 

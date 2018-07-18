@@ -41,7 +41,7 @@ library
     build-depends:
         atom-conduit >=0.5,
         base >=4.8 && <5,
-        conduit -any,
+        conduit >= 1.2.8,
         conduit-combinators -any,
         containers -any,
         dublincore-xml-conduit -any,

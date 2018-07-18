@@ -11,7 +11,7 @@ module Text.RSS.Extensions.Atom where
 import           Text.RSS.Extensions
 import           Text.RSS.Types
 
-import           Conduit                  (headC, (=$=))
+import           Conduit                  (headC, (.|))
 import           Data.Singletons
 import           GHC.Generics
 import           Text.Atom.Conduit.Parse
@@ -28,8 +28,8 @@ data instance Sing AtomModule = SAtomModule
 instance SingI AtomModule where sing = SAtomModule
 
 instance ParseRssExtension AtomModule where
-  parseRssChannelExtension = AtomChannel <$> (manyYield' atomLink =$= headC)
-  parseRssItemExtension    = AtomItem <$> (manyYield' atomLink =$= headC)
+  parseRssChannelExtension = AtomChannel <$> (manyYield' atomLink .| headC)
+  parseRssItemExtension    = AtomItem <$> (manyYield' atomLink .| headC)
 
 instance RenderRssExtension AtomModule where
   renderRssChannelExtension = mapM_ renderAtomLink . channelAtomLink
