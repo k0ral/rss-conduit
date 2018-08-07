@@ -23,7 +23,6 @@ import           Data.Text
 import           Data.Vinyl.Core
 import           Data.Vinyl.TypeLevel
 import           Data.XML.Types
-import           Debug.Trace
 import           GHC.Generics
 import           Text.Atom.Conduit.Parse
 import           Text.Atom.Types
