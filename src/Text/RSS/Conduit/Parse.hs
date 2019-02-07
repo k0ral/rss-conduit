@@ -82,8 +82,8 @@ asCloudProtocol "http-post" = return ProtocolHttpPost
 asCloudProtocol t           = throwM $ InvalidProtocol t
 
 -- | Like 'tagName' but ignores the namespace.
-tagName' :: (MonadThrow m) => Text -> AttrParser a -> (a -> ConduitM Event o m b) -> ConduitM Event o m (Maybe b)
-tagName' t = tag' (matching $ \n -> nameLocalName n == t)
+tagName' :: MonadThrow m => Text -> AttrParser a -> (a -> ConduitM Event o m b) -> ConduitM Event o m (Maybe b)
+tagName' t = tag' (matching $ \n -> nameLocalName n == t && isNothing (nameNamespace n))
 
 -- | Tag which content is a date-time that follows RFC 3339 format.
 tagDate :: (MonadThrow m) => NameMatcher a -> ConduitM Event o m (Maybe UTCTime)
