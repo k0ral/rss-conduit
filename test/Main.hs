@@ -29,8 +29,10 @@ import           Data.Conduit.List
 import           Data.Default
 import           Data.Maybe
 import           Data.Singletons.Prelude.List
+import           Data.String
 import           Data.Text                       (Text)
 import           Data.Text.Encoding
+import qualified Data.Text.Lazy.Encoding      as Lazy
 import           Data.Time.Calendar
 import           Data.Time.LocalTime
 import           Data.Version
@@ -38,9 +40,11 @@ import           Data.Vinyl.Core
 import           Data.Void
 import           Data.XML.Types
 import           Lens.Simple
+import           System.FilePath
 import           System.IO
 import           System.Timeout
 import           Test.Tasty
+import           Test.Tasty.Golden            (findByExtension, goldenVsString)
 import           Test.Tasty.HUnit
 import           Test.Tasty.QuickCheck
 import           Text.Atom.Conduit.Parse
@@ -52,10 +56,13 @@ import           URI.ByteString.QQ
 -- }}}
 
 main :: IO ()
-main = defaultMain $ testGroup "Tests"
-  [ unitTests
-  , properties
-  ]
+main = do
+  goldenTests <- genGoldenTests
+  defaultMain $ testGroup "Tests"
+    [ unitTests
+    , goldenTests
+    , properties
+    ]
 
 unitTests :: TestTree
 unitTests = testGroup "Unit tests"
@@ -75,7 +82,6 @@ unitTests = testGroup "Unit tests"
   , rss2ItemCase2
   , rss1ChannelItemsCase
   , rss1DocumentCase
-  , rss2DocumentCase
   , dublinCoreChannelCase
   , dublinCoreItemCase
   , contentItemCase
@@ -83,6 +89,18 @@ unitTests = testGroup "Unit tests"
   , atomChannelCase
   , multipleExtensionsCase
   ]
+
+genGoldenTests :: IO TestTree
+genGoldenTests = do
+  xmlFiles <- findByExtension [".xml"] "."
+
+  return $ testGroup "RSS golden tests" $ do
+    xmlFile <- xmlFiles
+    let goldenFile = addExtension xmlFile ".golden"
+        f file = fmap (Lazy.encodeUtf8 . fromString . show) $ runResourceT $ runConduit $ sourceFile file .| Conduit.decodeUtf8C .| XML.parseText' def .| parser
+        parser = rssDocument :: MonadThrow m => ConduitM Event o m (Maybe (RssDocument '[]))
+
+    return $ goldenVsString xmlFile goldenFile $ f xmlFile
 
 properties :: TestTree
 properties = testGroup "Properties"
@@ -388,38 +406,6 @@ rss1DocumentCase = testCase "<rdf> element" $ do
         imageLink = RssURI [uri|http://www.xml.com|]
         imageUri = RssURI [uri|http://xml.com/universal/images/xml_tiny.gif|]
         textInputLink = RssURI [uri|http://search.xml.com|]
-
-
-rss2DocumentCase :: TestTree
-rss2DocumentCase = testCase "<rss> element" $ do
-  Just result <- runResourceT . runConduit $ sourceList input .| XML.parseText' def .| rssDocument
-  result^.documentVersionL @?= Version [2] []
-  result^.channelTitleL @?= "RSS Title"
-  result^.channelDescriptionL @?= "This is an example of an RSS feed"
-  result^.channelLinkL @?= link
-  result^.channelTtlL @?= Just 1800
-  result^.channelExtensionsL @?= RssChannelExtensions RNil
-  length (result^..channelItemsL) @?= 1
-  where input = [ "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>"
-                , "<rss version=\"2.0\">"
-                , "<channel>"
-                , "<title>RSS Title</title>"
-                , "<description>This is an example of an RSS feed</description>"
-                , "<link>http://www.example.com/main.html</link>"
-                , "<lastBuildDate>Mon, 06 Sep 2010 00:01:00 +0000 </lastBuildDate>"
-                , "<pubDate>Sun, 06 Sep 2009 16:20:00 +0000</pubDate>"
-                , "<ttl>1800</ttl>"
-                , "<item>"
-                , "<title>Example entry</title>"
-                , "<description>Here is some text containing an interesting description.</description>"
-                , "<link>http://www.example.com/blog/post/1</link>"
-                , "<guid isPermaLink=\"true\">7bd204c6-1655-4c27-aeee-53f933c5395f</guid>"
-                , "<pubDate>Sun, 06 Sep 2009 16:20:00 +0000</pubDate>"
-                , "</item>"
-                , "</channel>"
-                , "</rss>"
-                ]
-        link = RssURI [uri|http://www.example.com/main.html|]
 
 
 dublinCoreChannelCase :: TestTree

@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"
+	xmlns:atom="http://www.w3.org/2005/Atom"
+	xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:psc="http://podlove.org/simple-chapters" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:fh="http://purl.org/syndication/history/1.0" >
+
+<channel>
+	<title>The Type Theory Podcast</title>
+	<link>http://typetheorypodcast.com</link>
+	<description>A podcast about type theory</description>
+	<lastBuildDate>Thu, 01 Dec 2016 22:54:58 +0000</lastBuildDate>
+	
+<image><url>http://typetheorypodcast.com/wp-content/cache/podlove/77/da02dbb19d4f65cd39b7b02362f7a2/the-type-theory-podcast_original.png</url><title>The Type Theory Podcast</title><link>http://typetheorypodcast.com</link></image>
+<atom:link rel="self" type="application/rss+xml" title="The Type Theory Podcast (The Type Theory Podcast)" href="http://typetheorypodcast.com/feed/podcast/" />
+	<atom:link rel="first" href="http://typetheorypodcast.com/feed/podcast/" />
+	<language>en-US</language><generator>Podlove Podcast Publisher v2.6.2</generator>
+	<itunes:author>The Type Theory Podcast</itunes:author>
+	<itunes:summary>We interview experts and researchers in type theory, from the perspectives of programming, mathematics, and philosophy.</itunes:summary>
+<itunes:category text="Science &amp; Medicine"><itunes:category text="Natural Sciences"></itunes:category></itunes:category>
+	
+	<itunes:owner>
+		<itunes:name>David Raymond Christiansen</itunes:name>
+		<itunes:email>david@davidchristiansen.dk</itunes:email>
+	</itunes:owner>
+	<itunes:image href="http://typetheorypodcast.com/wp-content/cache/podlove/77/da02dbb19d4f65cd39b7b02362f7a2/the-type-theory-podcast_original.png" />
+	<itunes:subtitle>A podcast about type theory</itunes:subtitle>
+	<itunes:block>no</itunes:block>
+	<itunes:explicit>no</itunes:explicit>
+
+<atom:link rel="payment" title="Flattr this!" href="https://flattr.com/submit/auto?user_id=&amp;language=en_US&amp;url=http%3A%2F%2Ftypetheorypodcast.com&amp;title=The+Type+Theory+Podcast&amp;description=A+podcast+about+type+theory" type="text/html" />		<item>
+		<title>Episode 6: Aaron Stump on Cedille</title>
+		<link>http://typetheorypodcast.com/2016/12/episode-6-aaron-stump-on-cedille/</link>
+		<pubDate>Thu, 01 Dec 2016 19:15:36 +0000</pubDate>
+		<guid isPermaLink="false">podlove-2016-10-06t16:00:49+00:00-402491c60bbf9f7</guid>
+		<description><![CDATA[Episode 6: Aaron Stump on Cedille]]></description><atom:link rel="http://podlove.org/deep-link" href="http://typetheorypodcast.com/2016/12/episode-6-aaron-stump-on-cedille/#" />
+<enclosure url="http://typetheorypodcast.com/media/episode-6-aaron-stump-cedille.m4a" length="38880566" type="audio/mp4"/>
+<itunes:duration>00:00:00</itunes:duration><itunes:author>The Type Theory Podcast</itunes:author><itunes:subtitle></itunes:subtitle><itunes:summary></itunes:summary><atom:link rel="payment" title="Flattr this!" href="https://flattr.com/submit/auto?user_id=&amp;language=en_US&amp;url=http%3A%2F%2Ftypetheorypodcast.com%2F2016%2F12%2Fepisode-6-aaron-stump-on-cedille%2F&amp;title=Episode+6%3A+Aaron+Stump+on+Cedille&amp;description=Episode+6%3A+Aaron+Stump+on+Cedille" type="text/html" />	</item>
+		<item>
+		<title>Episode 5: Bob Constable on CTT and Nuprl</title>
+		<link>http://typetheorypodcast.com/2015/08/episode-5-bob-constable-on-ctt-and-nuprl/</link>
+		<pubDate>Mon, 31 Aug 2015 14:32:12 +0000</pubDate>
+		<guid isPermaLink="false">podlove-2015-07-20t14:06:14+00:00-38c68f4f73c8f8c</guid>
+		<description><![CDATA[Episode 5: Bob Constable on CTT and Nuprl]]></description><atom:link rel="http://podlove.org/deep-link" href="http://typetheorypodcast.com/2015/08/episode-5-bob-constable-on-ctt-and-nuprl/#" />
+<enclosure url="http://typetheorypodcast.com/media/episode-5-bob-constable-nuprl.m4a" length="28591343" type="audio/mp4"/>
+<itunes:duration>00:00:00</itunes:duration><itunes:author>The Type Theory Podcast</itunes:author><itunes:subtitle></itunes:subtitle><itunes:summary></itunes:summary><atom:link rel="payment" title="Flattr this!" href="https://flattr.com/submit/auto?user_id=&amp;language=en_US&amp;url=http%3A%2F%2Ftypetheorypodcast.com%2F2015%2F08%2Fepisode-5-bob-constable-on-ctt-and-nuprl%2F&amp;title=Episode+5%3A+Bob+Constable+on+CTT+and+Nuprl&amp;description=Episode+5%3A+Bob+Constable+on+CTT+and+Nuprl" type="text/html" />	</item>
+		<item>
+		<title>Episode 4: Stephanie Weirich on Zombie and Dependent Haskell</title>
+		<link>http://typetheorypodcast.com/2015/04/episode-4-stephanie-weirich-on-zombie-and-dependent-haskell/</link>
+		<pubDate>Sat, 18 Apr 2015 19:07:49 +0000</pubDate>
+		<guid isPermaLink="false">podlove-2015-02-24t18:49:17+00:00-61f2e21203f9720</guid>
+		<description><![CDATA[In our fourth episode, we speak with Stephanie Weirich from the University of Pennsylvania on the Zombie language and Dependent Haskell. Stephanie is a long-time contributor to Haskell, having been involved in the design and implementation of features such as generalized algebraic datatypes, higher-rank polymorphism, type families, and promoted datatypes. She has also been a participant in Trellys, a project with the goal of combining proofs and programming in the same language.
+
+Zombie is a different kind of dependently typed language, eschewing automatic β-reduction in the type checker for an approach based on explicit equality rewriting, which enables new ways of combining proofs and programs, as well as new forms of proof automation. Meanwhile, as languages designed for dependently typed programming come closer to practical applicability, Haskell is also moving towards full dependent types. We discuss the challenges and opportunities available at the cutting edge of Haskell.]]></description><atom:link rel="http://podlove.org/deep-link" href="http://typetheorypodcast.com/2015/04/episode-4-stephanie-weirich-on-zombie-and-dependent-haskell/#" />
+<enclosure url="http://typetheorypodcast.com/media/episode-4-stephanie-weirich-zombie-haskell.m4a" length="30575823" type="audio/mp4"/>
+<itunes:duration>00:00:00</itunes:duration><itunes:author>The Type Theory Podcast</itunes:author><itunes:subtitle></itunes:subtitle><itunes:summary>In our fourth episode, we speak with Stephanie Weirich from the University of Pennsylvania on the Zombie language and Dependent Haskell. Stephanie is a long-time contributor to Haskell, having been involved in the design and implementation of features such as generalized algebraic datatypes, higher-rank polymorphism, type families, and promoted datatypes. She has also been a participant in Trellys, a project with the goal of combining proofs and programming in the same language.
+
+Zombie is a different kind of dependently typed language, eschewing automatic β-reduction in the type checker for an approach based on explicit equality rewriting, which enables new ways of combining proofs and programs, as well as new forms of proof automation. Meanwhile, as languages designed for dependently typed programming come closer to practical applicability, Haskell is also moving towards full dependent types. We discuss the challenges and opportunities available at the cutting edge of Haskell.</itunes:summary><atom:link rel="payment" title="Flattr this!" href="https://flattr.com/submit/auto?user_id=&amp;language=en_US&amp;url=http%3A%2F%2Ftypetheorypodcast.com%2F2015%2F04%2Fepisode-4-stephanie-weirich-on-zombie-and-dependent-haskell%2F&amp;title=Episode+4%3A+Stephanie+Weirich+on+Zombie+and+Dependent+Haskell&amp;description=In+our+fourth+episode%2C+we+speak+with+Stephanie+Weirich+from+the+University+of+Pennsylvania+on+the+Zombie+language+and+Dependent+Haskell.+Stephanie+is+a+long-time+contributor+to+Haskell%2C+having+been+involved+in+the+design+and+implementation+of+features+such+as+generalized+algebraic+datatypes%2C+higher-rank+polymorphism%2C+type+families%2C+and+promoted+datatypes.+She+has+also+been+a+participant+in+Trellys%2C+a+project+with+the+goal+of+combining+proofs+and+programming+in+the+same+language.%0D%0A%0D%0AZombie+is+a+different+kind+of+dependently+typed+language%2C+eschewing+automatic+%CE%B2-reduction+in+the+type+checker+for+an+approach+based+on+explicit+equality+rewriting%2C+which+enables+new+ways+of+combining+proofs+and+programs%2C+as+well+as+new+forms+of+proof+automation.+Meanwhile%2C+as+languages+designed+for+dependently+typed+programming+come+closer+to+practical+applicability%2C+Haskell+is+also+moving+towards+full+dependent+types.+We+discuss+the+challenges+and+opportunities+available+at+the+cutting+edge+of+Haskell." type="text/html" />	</item>
+		<item>
+		<title>Episode 3: Dan Licata on Homotopy Type Theory</title>
+		<link>http://typetheorypodcast.com/2015/01/episode-3-dan-licata-on-homotopy-type-theory/</link>
+		<pubDate>Wed, 07 Jan 2015 20:02:22 +0000</pubDate>
+		<guid isPermaLink="false">podlove-2014-11-08t22:22:15+00:00-85b7c2517b1694d</guid>
+		<description><![CDATA[Episode 3: Dan Licata on Homotopy Type Theory]]></description><atom:link rel="http://podlove.org/deep-link" href="http://typetheorypodcast.com/2015/01/episode-3-dan-licata-on-homotopy-type-theory/#" />
+<enclosure url="http://typetheorypodcast.com/media/episode-3-dan-licata-hott.m4a" length="36731577" type="audio/mp4"/>
+<itunes:duration>00:00:00</itunes:duration><itunes:author>The Type Theory Podcast</itunes:author><itunes:subtitle></itunes:subtitle><itunes:summary></itunes:summary><atom:link rel="payment" title="Flattr this!" href="https://flattr.com/submit/auto?user_id=&amp;language=en_US&amp;url=http%3A%2F%2Ftypetheorypodcast.com%2F2015%2F01%2Fepisode-3-dan-licata-on-homotopy-type-theory%2F&amp;title=Episode+3%3A+Dan+Licata+on+Homotopy+Type+Theory&amp;description=Episode+3%3A+Dan+Licata+on+Homotopy+Type+Theory" type="text/html" />	</item>
+		<item>
+		<title>Episode 2: Edwin Brady on Idris</title>
+		<link>http://typetheorypodcast.com/2014/09/episode-2-edwin-brady-on-idris/</link>
+		<pubDate>Fri, 26 Sep 2014 07:58:48 +0000</pubDate>
+		<guid isPermaLink="false">podlove-2014-09-19t13:41:11+00:00-9cdcb29d2eb5a94</guid>
+		<description><![CDATA[In our second episode, we speak with Edwin Brady from the University of St. Andrews. Since 2008, Edwin has been working on Idris, a functional programming language with dependent types. This episode is very much about programming: we discuss the language Idris, its history, its implementation strategies, and plans for the future.]]></description><atom:link rel="http://podlove.org/deep-link" href="http://typetheorypodcast.com/2014/09/episode-2-edwin-brady-on-idris/#" />
+<enclosure url="http://typetheorypodcast.com/media/episode-2-edwin-brady-idris.m4a" length="45011605" type="audio/mp4"/>
+<itunes:duration>01:32:50</itunes:duration><itunes:author>The Type Theory Podcast</itunes:author><itunes:subtitle></itunes:subtitle><itunes:summary>In our second episode, we speak with Edwin Brady from the University of St. Andrews. Since 2008, Edwin has been working on Idris, a functional programming language with dependent types. This episode is very much about programming: we discuss the language Idris, its history, its implementation strategies, and plans for the future.</itunes:summary><atom:link rel="payment" title="Flattr this!" href="https://flattr.com/submit/auto?user_id=&amp;language=en_US&amp;url=http%3A%2F%2Ftypetheorypodcast.com%2F2014%2F09%2Fepisode-2-edwin-brady-on-idris%2F&amp;title=Episode+2%3A+Edwin+Brady+on+Idris&amp;description=In+our+second+episode%2C+we+speak+with+Edwin+Brady+from+the+University+of+St.+Andrews.+Since+2008%2C+Edwin+has+been+working+on+Idris%2C+a+functional+programming+language+with+dependent+types.+This+episode+is+very+much+about+programming%3A+we+discuss+the+language+Idris%2C+its+history%2C+its+implementation+strategies%2C+and+plans+for+the+future." type="text/html" />	</item>
+		<item>
+		<title>Episode 1: Peter Dybjer on types and testing</title>
+		<link>http://typetheorypodcast.com/2014/08/episode-1-peter-dybjer-on-type-theory-and-testing/</link>
+		<pubDate>Wed, 13 Aug 2014 06:18:02 +0000</pubDate>
+		<guid isPermaLink="false">podlove-2014-08-08t09:39:19+00:00-fc44ac5de1a79c9</guid>
+		<description><![CDATA[We speak with Peter Dybjer about the relationship between QuickCheck-style testing and proofs and verification in type theory.]]></description><atom:link rel="http://podlove.org/deep-link" href="http://typetheorypodcast.com/2014/08/episode-1-peter-dybjer-on-type-theory-and-testing/#" />
+<enclosure url="http://typetheorypodcast.com/media/episode-1-peter-dybjer-types-and-testing.m4a" length="26679088" type="audio/mp4"/>
+<itunes:duration>00:00:00</itunes:duration><itunes:author>The Type Theory Podcast</itunes:author><itunes:subtitle></itunes:subtitle><itunes:summary>We speak with Peter Dybjer about the relationship between QuickCheck-style testing and proofs and verification in type theory.</itunes:summary><atom:link rel="payment" title="Flattr this!" href="https://flattr.com/submit/auto?user_id=&amp;language=en_US&amp;url=http%3A%2F%2Ftypetheorypodcast.com%2F2014%2F08%2Fepisode-1-peter-dybjer-on-type-theory-and-testing%2F&amp;title=Episode+1%3A+Peter+Dybjer+on+types+and+testing&amp;description=We+speak+with+Peter+Dybjer+about+the+relationship+between+QuickCheck-style+testing+and+proofs+and+verification+in+type+theory." type="text/html" />	</item>
+	</channel>
+</rss>
