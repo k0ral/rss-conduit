@@ -14,9 +14,6 @@ import           Text.RSS.Types
 import           Data.ByteString                 (ByteString)
 import           Data.Char
 import           Data.Maybe
-import           Data.MonoTraversable            (Element)
-import           Data.NonNull
-import           Data.Sequences                  (SemiSequence)
 import           Data.Text                       (Text, find, pack)
 import           Data.Text.Encoding
 import           Data.Time.Clock

@@ -4,7 +4,6 @@
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE QuasiQuotes         #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications    #-}
 -- {{{ Imports
 import           Text.RSS.Conduit.Parse          as Parser
 import           Text.RSS.Conduit.Render         as Renderer
@@ -17,8 +16,6 @@ import           Text.RSS.Lens
 import           Text.RSS.Types
 import           Text.RSS1.Conduit.Parse         as Parser
 
-import           Arbitrary
-import           Blaze.ByteString.Builder        (toByteString)
 import           Conduit
 import           Control.Exception.Safe          as Exception
 import           Control.Monad
@@ -30,8 +27,6 @@ import           Data.Default
 import           Data.Maybe
 import           Data.Singletons.Prelude.List
 import           Data.String
-import           Data.Text                       (Text)
-import           Data.Text.Encoding
 import qualified Data.Text.Lazy.Encoding      as Lazy
 import           Data.Time.Calendar
 import           Data.Time.LocalTime
@@ -46,7 +41,6 @@ import           System.Timeout
 import           Test.Tasty
 import           Test.Tasty.Golden            (findByExtension, goldenVsString)
 import           Test.Tasty.HUnit
-import           Test.Tasty.QuickCheck
 import           Text.Atom.Conduit.Parse
 import           Text.Atom.Types
 import           Text.XML.Stream.Parse           as XML hiding (choose)
@@ -61,7 +55,6 @@ main = do
   defaultMain $ testGroup "Tests"
     [ unitTests
     , goldenTests
-    , properties
     ]
 
 unitTests :: TestTree
@@ -101,40 +94,6 @@ genGoldenTests = do
         parser = rssDocument :: MonadThrow m => ConduitM Event o m (Maybe (RssDocument '[]))
 
     return $ goldenVsString xmlFile goldenFile $ f xmlFile
-
-properties :: TestTree
-properties = testGroup "Properties"
-  [ roundtripProperty "RssTextInput" renderRssTextInput rssTextInput
-  , roundtripProperty "RssImage" renderRssImage rssImage
-  , roundtripProperty "RssCategory" renderRssCategory rssCategory
-  , roundtripProperty "RssEnclosure" renderRssEnclosure rssEnclosure
-  , roundtripProperty "RssSource" renderRssSource rssSource
-  , roundtripProperty "RssGuid" renderRssGuid rssGuid
-  , roundtripProperty "RssItem"
-      (renderRssItem :: RssItem '[] -> ConduitT () Event Maybe ())
-      rssItem
-  , roundtripProperty "DublinCore"
-      (renderRssChannelExtension @DublinCoreModule)
-      (Just <$> parseRssChannelExtension)
-  , roundtripProperty "Syndication"
-      (renderRssChannelExtension @SyndicationModule)
-      (Just <$> parseRssChannelExtension)
-  , roundtripProperty "Atom"
-      (renderRssChannelExtension @AtomModule)
-      (Just <$> parseRssChannelExtension)
-  , roundtripProperty "Content"
-      (renderRssItemExtension @ContentModule)
-      (Just <$> parseRssItemExtension)
-  ]
-
-
-roundtripProperty :: Eq a => Arbitrary a => Show a
-                  => TestName -> (a -> ConduitT () Event Maybe ()) -> ConduitT Event Void Maybe (Maybe a) -> TestTree
-roundtripProperty name render parse = testProperty ("parse . render = id (" <> name <> ")") $ do
-  input <- arbitrary
-  let intermediate = fmap (decodeUtf8 . toByteString) $ runConduit $ render input .| renderBuilder def .| foldC
-      output = join $ runConduit $ render input .| parse
-  return $ counterexample (show input <> " | " <> show intermediate <> " | " <> show output) $ Just input == output
 
 
 skipHoursCase :: TestTree
@@ -524,30 +483,3 @@ multipleExtensionsCase = testCase "Multiple extensions" $ do
                 ]
         url = AtomURI [uri|http://dallas.example.com/rss.xml|]
         link = AtomLink url "self" "application/rss+xml" mempty mempty mempty
-
-
-roundtripTextInputProperty :: TestTree
-roundtripTextInputProperty = testProperty "parse . render = id (RssTextInput)" $ \t -> either (const False) (t ==) (runConduit $ renderRssTextInput t .| force "ERROR" rssTextInput)
-
-roundtripImageProperty :: TestTree
-roundtripImageProperty = testProperty "parse . render = id (RssImage)" $ \t -> either (const False) (t ==) (runConduit $ renderRssImage t .| force "ERROR" rssImage)
-
-roundtripCategoryProperty :: TestTree
-roundtripCategoryProperty = testProperty "parse . render = id (RssCategory)" $ \t -> either (const False) (t ==) (runConduit $ renderRssCategory t .| force "ERROR" rssCategory)
-
-roundtripEnclosureProperty :: TestTree
-roundtripEnclosureProperty = testProperty "parse . render = id (RssEnclosure)" $ \t -> either (const False) (t ==) (runConduit $ renderRssEnclosure t .| force "ERROR" rssEnclosure)
-
-roundtripSourceProperty :: TestTree
-roundtripSourceProperty = testProperty "parse . render = id (RssSource)" $ \t -> either (const False) (t ==) (runConduit $ renderRssSource t .| force "ERROR" rssSource)
-
-roundtripGuidProperty :: TestTree
-roundtripGuidProperty = testProperty "parse . render = id (RssGuid)" $ \t -> either (const False) (t ==) (runConduit $ renderRssGuid t .| force "ERROR" rssGuid)
-
-roundtripItemProperty :: TestTree
-roundtripItemProperty = testProperty "parse . render = id (RssItem)" $ \(t :: RssItem '[]) -> either (const False) (t ==) (runConduit $ renderRssItem t .| force "ERROR" rssItem)
-
-
-letter = choose ('a', 'z')
-digit = arbitrary `suchThat` isDigit
-alphaNum = oneof [letter, digit]
