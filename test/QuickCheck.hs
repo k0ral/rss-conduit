@@ -35,6 +35,8 @@ import           Data.Version
 import           Data.Vinyl.Core
 import           Data.Void
 import           Data.XML.Types
+import           Prelude                         ()
+import           Prelude.Compat
 import           System.FilePath
 import           System.IO
 import           System.Timeout
