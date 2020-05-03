@@ -1,10 +1,9 @@
-{-# LANGUAGE DataKinds             #-}
-{-# LANGUAGE FlexibleContexts     #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE OverloadedLists       #-}
-{-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE FlexibleInstances   #-}
+{-# LANGUAGE OverloadedLists     #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications    #-}
 -- {{{ Imports
 import           Text.RSS.Conduit.Parse          as Parser
 import           Text.RSS.Conduit.Render         as Renderer
@@ -17,7 +16,7 @@ import           Text.RSS.Lens
 import           Text.RSS.Types
 import           Text.RSS1.Conduit.Parse         as Parser
 
-import Arbitrary
+import           Arbitrary
 import           Blaze.ByteString.Builder        (toByteString)
 import           Conduit
 import           Control.Monad
@@ -32,7 +31,6 @@ import qualified Data.Text.Lazy.Encoding         as Lazy
 import           Data.Time.Calendar
 import           Data.Time.LocalTime
 import           Data.Version
-import           Data.Vinyl.Core
 import           Data.Void
 import           Data.XML.Types
 import           Prelude                         ()
@@ -62,16 +60,16 @@ main = defaultMain $ testGroup "Property tests"
 --       (renderRssItem :: RssItem '[] -> ConduitT () Event Maybe ())
 --       rssItem
   , roundtripProperty "DublinCore"
-      (renderRssChannelExtension @DublinCoreModule)
+      (renderRssChannelExtension @(DublinCoreModule NoExtensions))
       (Just <$> parseRssChannelExtension)
   , roundtripProperty "Syndication"
-      (renderRssChannelExtension @SyndicationModule)
+      (renderRssChannelExtension @(SyndicationModule NoExtensions))
       (Just <$> parseRssChannelExtension)
   , roundtripProperty "Atom"
-      (renderRssChannelExtension @AtomModule)
+      (renderRssChannelExtension @(AtomModule NoExtensions))
       (Just <$> parseRssChannelExtension)
   , roundtripProperty "Content"
-      (renderRssItemExtension @ContentModule)
+      (renderRssItemExtension @(ContentModule NoExtensions))
       (Just <$> parseRssItemExtension)
   ]
 
@@ -103,4 +101,4 @@ roundtripGuidProperty :: TestTree
 roundtripGuidProperty = testProperty "parse . render = id (RssGuid)" $ \t -> either (const False) (t ==) (runConduit $ renderRssGuid t .| force "ERROR" rssGuid)
 
 roundtripItemProperty :: TestTree
-roundtripItemProperty = testProperty "parse . render = id (RssItem)" $ \(t :: RssItem '[]) -> either (const False) (t ==) (runConduit $ renderRssItem t .| force "ERROR" rssItem)
+roundtripItemProperty = testProperty "parse . render = id (RssItem)" $ \(t :: RssItem NoExtensions) -> either (const False) (t ==) (runConduit $ renderRssItem t .| force "ERROR" rssItem)

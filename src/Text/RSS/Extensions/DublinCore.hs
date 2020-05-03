@@ -1,11 +1,12 @@
-{-# LANGUAGE DataKinds         #-}
-{-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE KindSignatures    #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RankNTypes        #-}
-{-# LANGUAGE RecordWildCards   #-}
-{-# LANGUAGE TemplateHaskell   #-}
-{-# LANGUAGE TypeFamilies      #-}
+{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE FlexibleContexts   #-}
+{-# LANGUAGE FlexibleInstances  #-}
+{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE RankNTypes         #-}
+{-# LANGUAGE RecordWildCards    #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TemplateHaskell    #-}
+{-# LANGUAGE TypeFamilies       #-}
 -- | __Dublin Core__ extension for RSS.
 --  Cf specification at <http://web.resource.org/rss/1.0/modules/dc/>.
 module Text.RSS.Extensions.DublinCore
@@ -27,7 +28,6 @@ import           Control.Exception.Safe             as Exception
 import           Control.Monad
 import           Control.Monad.Fix
 import           Data.Maybe
-import           Data.Singletons
 import           Data.Text                          (Text)
 import qualified Data.Text                          as Text
 import           Data.Time.Clock
@@ -69,7 +69,7 @@ data DcMetaData = DcMetaData
   , elementSubject     :: Text
   , elementTitle       :: Text
   , elementType        :: Text
-  } deriving(Eq, Generic, Ord, Show)
+  } deriving(Eq, Generic, Ord, Read, Show)
 
 -- | Construct an empty 'DcMetaData'.
 mkDcMetaData = DcMetaData mempty mempty mempty Nothing mempty mempty mempty mempty mempty mempty mempty mempty mempty mempty mempty
@@ -140,22 +140,43 @@ renderDcMetadata DcMetaData{..} = do
 
 
 -- | __Dublin Core__ tag type.
-data DublinCoreModule :: *
+newtype DublinCoreModule a = DublinCoreModule a
 
-data instance Sing DublinCoreModule = SDublinCoreModule
+instance ParseRssExtension a => ParseRssExtension (DublinCoreModule a) where
+  parseRssChannelExtension = getZipConduit $ DublinCoreChannel
+    <$> ZipConduit dcMetadata
+    <*> ZipConduit parseRssChannelExtension
+  parseRssItemExtension    = getZipConduit $ DublinCoreItem
+    <$> ZipConduit dcMetadata
+    <*> ZipConduit parseRssItemExtension
 
-instance SingI DublinCoreModule where sing = SDublinCoreModule
-
-instance ParseRssExtension DublinCoreModule where
-  parseRssChannelExtension = DublinCoreChannel <$> dcMetadata
-  parseRssItemExtension    = DublinCoreItem <$> dcMetadata
-
-instance RenderRssExtension DublinCoreModule where
-  renderRssChannelExtension = renderDcMetadata . channelDcMetaData
-  renderRssItemExtension    = renderDcMetadata . itemDcMetaData
+instance RenderRssExtension a => RenderRssExtension (DublinCoreModule a) where
+  renderRssChannelExtension DublinCoreChannel{..} = do
+    renderDcMetadata channelDcMetaData
+    renderRssChannelExtension channelDcOther
+  renderRssItemExtension DublinCoreItem{..}   = do
+    renderDcMetadata itemDcMetaData
+    renderRssItemExtension itemDcOther
 
 
-data instance RssChannelExtension DublinCoreModule = DublinCoreChannel { channelDcMetaData :: DcMetaData }
-  deriving(Eq, Generic, Ord, Show)
-data instance RssItemExtension DublinCoreModule = DublinCoreItem { itemDcMetaData :: DcMetaData }
-  deriving(Eq, Generic, Ord, Show)
+data instance RssChannelExtension (DublinCoreModule a) = DublinCoreChannel
+  { channelDcMetaData :: DcMetaData
+  , channelDcOther    :: RssChannelExtension a
+  }
+
+deriving instance Eq (RssChannelExtension a) => Eq (RssChannelExtension (DublinCoreModule a))
+deriving instance Ord (RssChannelExtension a) => Ord (RssChannelExtension (DublinCoreModule a))
+deriving instance Read (RssChannelExtension a) => Read (RssChannelExtension (DublinCoreModule a))
+deriving instance Show (RssChannelExtension a) => Show (RssChannelExtension (DublinCoreModule a))
+deriving instance Generic (RssChannelExtension a) => Generic (RssChannelExtension (DublinCoreModule a))
+
+data instance RssItemExtension (DublinCoreModule a) = DublinCoreItem
+  { itemDcMetaData :: DcMetaData
+  , itemDcOther    :: RssItemExtension a
+  }
+
+deriving instance Eq (RssItemExtension a) => Eq (RssItemExtension (DublinCoreModule a))
+deriving instance Ord (RssItemExtension a) => Ord (RssItemExtension (DublinCoreModule a))
+deriving instance Read (RssItemExtension a) => Read (RssItemExtension (DublinCoreModule a))
+deriving instance Show (RssItemExtension a) => Show (RssItemExtension (DublinCoreModule a))
+deriving instance Generic (RssItemExtension a) => Generic (RssItemExtension (DublinCoreModule a))

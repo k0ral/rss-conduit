@@ -1,11 +1,12 @@
-{-# LANGUAGE DataKinds         #-}
-{-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE KindSignatures    #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RankNTypes        #-}
-{-# LANGUAGE RecordWildCards   #-}
-{-# LANGUAGE TemplateHaskell   #-}
-{-# LANGUAGE TypeFamilies      #-}
+{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE FlexibleContexts   #-}
+{-# LANGUAGE FlexibleInstances  #-}
+{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE RankNTypes         #-}
+{-# LANGUAGE RecordWildCards    #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TemplateHaskell    #-}
+{-# LANGUAGE TypeFamilies       #-}
 -- | __Syndication__ module for RSS.
 -- Cf specification at <http://web.resource.org/rss/1.0/modules/syndication/>.
 module Text.RSS.Extensions.Syndication
@@ -42,7 +43,6 @@ import           Control.Exception.Safe as Exception
 import           Control.Monad
 import           Control.Monad.Fix
 import           Data.Maybe
-import           Data.Singletons
 import           Data.Text
 import           Data.Time.Clock
 import           Data.Time.LocalTime
@@ -181,21 +181,36 @@ renderSyndicationBase = renderSyndicationTag "updateBase" . formatTimeRFC822 . u
 
 
 -- | __Syndication__ tag type.
-data SyndicationModule :: *
+newtype SyndicationModule a = SyndicationModule a
 
-data instance Sing SyndicationModule = SSyndicationModule
+instance ParseRssExtension a => ParseRssExtension (SyndicationModule a) where
+  parseRssChannelExtension = getZipConduit $ SyndicationChannel
+    <$> ZipConduit syndicationInfo
+    <*> ZipConduit parseRssChannelExtension
+  parseRssItemExtension    = SyndicationItem <$> parseRssItemExtension
 
-instance SingI SyndicationModule where sing = SSyndicationModule
-
-instance ParseRssExtension SyndicationModule where
-  parseRssChannelExtension = SyndicationChannel <$> syndicationInfo
-  parseRssItemExtension    = pure SyndicationItem
-
-instance RenderRssExtension SyndicationModule where
-  renderRssChannelExtension = renderSyndicationInfo . channelSyndicationInfo
-  renderRssItemExtension    = const $ pure ()
+instance RenderRssExtension a => RenderRssExtension (SyndicationModule a) where
+  renderRssChannelExtension SyndicationChannel{..} = do
+    renderSyndicationInfo channelSyndicationInfo
+    renderRssChannelExtension channelSyndicationOther
+  renderRssItemExtension (SyndicationItem a) = renderRssItemExtension a
 
 
-data instance RssChannelExtension SyndicationModule = SyndicationChannel { channelSyndicationInfo :: SyndicationInfo}
-  deriving (Eq, Generic, Ord, Read, Show)
-data instance RssItemExtension SyndicationModule = SyndicationItem deriving (Eq, Generic, Ord, Read, Show)
+data instance RssChannelExtension (SyndicationModule a) = SyndicationChannel
+  { channelSyndicationInfo  :: SyndicationInfo
+  , channelSyndicationOther :: RssChannelExtension a
+  }
+
+deriving instance Eq (RssChannelExtension a) => Eq (RssChannelExtension (SyndicationModule a))
+deriving instance Ord (RssChannelExtension a) => Ord (RssChannelExtension (SyndicationModule a))
+deriving instance Read (RssChannelExtension a) => Read (RssChannelExtension (SyndicationModule a))
+deriving instance Show (RssChannelExtension a) => Show (RssChannelExtension (SyndicationModule a))
+deriving instance Generic (RssChannelExtension a) => Generic (RssChannelExtension (SyndicationModule a))
+
+data instance RssItemExtension (SyndicationModule a) = SyndicationItem (RssItemExtension a)
+
+deriving instance Eq (RssItemExtension a) => Eq (RssItemExtension (SyndicationModule a))
+deriving instance Ord (RssItemExtension a) => Ord (RssItemExtension (SyndicationModule a))
+deriving instance Read (RssItemExtension a) => Read (RssItemExtension (SyndicationModule a))
+deriving instance Show (RssItemExtension a) => Show (RssItemExtension (SyndicationModule a))
+deriving instance Generic (RssItemExtension a) => Generic (RssItemExtension (SyndicationModule a))

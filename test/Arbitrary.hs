@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds         #-}
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs             #-}
 -- | 'Arbitrary' instances used by RSS types.
@@ -18,7 +19,6 @@ import           Data.Text                       (Text, find, pack)
 import           Data.Text.Encoding
 import           Data.Time.Clock
 import           Data.Version
-import           Data.Vinyl.Core
 import           GHC.Generics
 import           Test.QuickCheck
 import           Test.QuickCheck.Instances       ()
@@ -96,7 +96,7 @@ instance Arbitrary RssGuid where
 instance Arbitrary RssImage where
   arbitrary = RssImage <$> arbitrary <*> (pack <$> listOf genAlphaNum) <*> arbitrary <*> fmap (fmap abs) arbitrary <*> fmap (fmap abs) arbitrary <*> (pack <$> listOf genAlphaNum)
 
-instance Arbitrary (RssItem '[]) where
+instance Arbitrary (RssItem NoExtensions) where
   arbitrary = RssItem
     <$> (pack <$> listOf genAlphaNum)
     <*> arbitrary
@@ -108,7 +108,7 @@ instance Arbitrary (RssItem '[]) where
     <*> arbitrary
     <*> oneof [Just <$> genTime, pure Nothing]
     <*> arbitrary
-    <*> pure (RssItemExtensions RNil)
+    <*> pure NoItemExtensions
 
 instance Arbitrary RssSource where
   arbitrary = RssSource <$> arbitrary <*> (pack <$> listOf genAlphaNum)
@@ -116,7 +116,7 @@ instance Arbitrary RssSource where
 instance Arbitrary RssTextInput where
   arbitrary = RssTextInput <$> (pack <$> listOf genAlphaNum) <*> (pack <$> listOf genAlphaNum) <*> (pack <$> listOf genAlphaNum) <*> arbitrary
 
-instance Arbitrary (RssDocument '[]) where
+instance Arbitrary (RssDocument NoExtensions) where
   arbitrary = RssDocument
     <$> arbitrary
     <*> arbitrary
@@ -139,7 +139,7 @@ instance Arbitrary (RssDocument '[]) where
     <*> arbitrary
     <*> arbitrary
     <*> arbitrary
-    <*> pure (RssChannelExtensions RNil)
+    <*> pure NoChannelExtensions
 
 instance Arbitrary Day where
   arbitrary = arbitraryBoundedEnum
@@ -163,6 +163,12 @@ instance Arbitrary RssURI where
   shrink (RssURI a@URI{})         = RssURI <$> shrink a
   shrink (RssURI a@RelativeRef{}) = RssURI <$> shrink a
 
+instance Arbitrary (RssChannelExtension NoExtensions) where
+  arbitrary = pure NoChannelExtensions
+
+instance Arbitrary (RssItemExtension NoExtensions) where
+  arbitrary = pure NoItemExtensions
+
 instance Arbitrary DcMetaData where
   arbitrary = DcMetaData
     <$> arbitrary
@@ -181,8 +187,8 @@ instance Arbitrary DcMetaData where
     <*> arbitrary
     <*> arbitrary
 
-instance Arbitrary (RssChannelExtension DublinCoreModule) where
-  arbitrary = DublinCoreChannel <$> arbitrary
+instance Arbitrary (RssChannelExtension a) => Arbitrary (RssChannelExtension (DublinCoreModule a)) where
+  arbitrary = DublinCoreChannel <$> arbitrary <*> arbitrary
 
 instance Arbitrary SyndicationPeriod where
   arbitrary = arbitraryBoundedEnum
@@ -194,8 +200,8 @@ instance Arbitrary SyndicationInfo where
     <*> arbitrary
     <*> oneof [Just <$> genTime, pure Nothing]
 
-instance Arbitrary (RssChannelExtension SyndicationModule) where
-  arbitrary = SyndicationChannel <$> arbitrary
+instance Arbitrary (RssChannelExtension a) => Arbitrary (RssChannelExtension (SyndicationModule a)) where
+  arbitrary = SyndicationChannel <$> arbitrary <*> arbitrary
 
 instance Arbitrary AtomURI where
   arbitrary = oneof [AtomURI <$> (arbitrary :: Gen (URIRef Absolute)), AtomURI <$> (arbitrary :: Gen (URIRef Relative))]
@@ -203,8 +209,8 @@ instance Arbitrary AtomURI where
 instance Arbitrary AtomLink where
   arbitrary = AtomLink <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
 
-instance Arbitrary (RssChannelExtension AtomModule) where
-  arbitrary = AtomChannel <$> arbitrary
+instance Arbitrary (RssChannelExtension a) => Arbitrary (RssChannelExtension (AtomModule a)) where
+  arbitrary = AtomChannel <$> arbitrary <*> arbitrary
 
-instance Arbitrary (RssItemExtension ContentModule) where
-  arbitrary = ContentItem <$> arbitrary
+instance Arbitrary (RssItemExtension a) => Arbitrary (RssItemExtension (ContentModule a)) where
+  arbitrary = ContentItem <$> arbitrary <*> arbitrary

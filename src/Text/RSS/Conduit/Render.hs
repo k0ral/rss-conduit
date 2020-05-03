@@ -40,7 +40,7 @@ import           URI.ByteString
 -- }}}
 
 -- | Render the top-level @\<rss\>@ element.
-renderRssDocument :: Monad m => RenderRssExtensions e => RssDocument e -> ConduitT () Event m ()
+renderRssDocument :: Monad m => RenderRssExtension e => RssDocument e -> ConduitT () Event m ()
 renderRssDocument d = tag "rss" (attr "version" . pack . showVersion $ d^.documentVersionL) $
   tag "channel" mempty $ do
     textTag "title" $ d^.channelTitleL
@@ -63,10 +63,10 @@ renderRssDocument d = tag "rss" (attr "version" . pack . showVersion $ d^.docume
     renderRssSkipHours $ d^.channelSkipHoursL
     renderRssSkipDays $ d^.channelSkipDaysL
     forM_ (d^..channelItemsL) renderRssItem
-    renderRssChannelExtensions $ d^.channelExtensionsL
+    renderRssChannelExtension $ d^.channelExtensionsL
 
 -- | Render an @\<item\>@ element.
-renderRssItem :: Monad m => RenderRssExtensions e => RssItem e -> ConduitT () Event m ()
+renderRssItem :: Monad m => RenderRssExtension e => RssItem e -> ConduitT () Event m ()
 renderRssItem i = tag "item" mempty $ do
   optionalTextTag "title" $ i^.itemTitleL
   forM_ (i^.itemLinkL) $ textTag "link" . renderRssURI
@@ -78,7 +78,7 @@ renderRssItem i = tag "item" mempty $ do
   forM_ (i^.itemGuidL) renderRssGuid
   forM_ (i^.itemPubDateL) $ dateTag "pubDate"
   forM_ (i^.itemSourceL) renderRssSource
-  renderRssItemExtensions $ i^.itemExtensionsL
+  renderRssItemExtension $ i^.itemExtensionsL
 
 -- | Render a @\<source\>@ element.
 renderRssSource :: (Monad m) => RssSource -> ConduitT () Event m ()

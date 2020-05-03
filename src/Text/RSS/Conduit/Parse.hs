@@ -205,7 +205,7 @@ makeTraversals ''ItemPiece
 -- | Parse an @\<item\>@ element.
 --
 -- RSS extensions are automatically parsed based on the inferred result type.
-rssItem :: ParseRssExtensions e => MonadThrow m => ConduitM Event o m (Maybe (RssItem e))
+rssItem :: ParseRssExtension e => MonadThrow m => ConduitM Event o m (Maybe (RssItem e))
 rssItem = tagIgnoreAttrs "item" $ (manyYield' (choose piece) .| parser) <* many ignoreAnyTreeContent where
   parser = getZipConduit $ RssItem
     <$> ZipConduit (projectC _ItemTitle .| headDefC "")
@@ -218,7 +218,7 @@ rssItem = tagIgnoreAttrs "item" $ (manyYield' (choose piece) .| parser) <* many 
     <*> ZipConduit (projectC _ItemGuid .| headC)
     <*> ZipConduit (projectC _ItemPubDate .| headC)
     <*> ZipConduit (projectC _ItemSource .| headC)
-    <*> ZipConduit (projectC _ItemOther .| concatC .| parseRssItemExtensions)
+    <*> ZipConduit (projectC _ItemOther .| concatC .| parseRssItemExtension)
   piece = [ fmap ItemTitle <$> tagIgnoreAttrs "title" content
           , fmap ItemLink <$> tagIgnoreAttrs "link" (content >>= asRssURI)
           , fmap ItemDescription <$> tagIgnoreAttrs "description" content
@@ -247,7 +247,7 @@ makeTraversals ''ChannelPiece
 -- | Parse an @\<rss\>@ element.
 --
 -- RSS extensions are automatically parsed based on the inferred result type.
-rssDocument :: ParseRssExtensions e => MonadThrow m => ConduitM Event o m (Maybe (RssDocument e))
+rssDocument :: ParseRssExtension e => MonadThrow m => ConduitM Event o m (Maybe (RssDocument e))
 rssDocument = tagName' "rss" attributes $ \version -> force "Missing <channel>" $ tagIgnoreAttrs "channel" (manyYield' (choose piece) .| parser version) <* many ignoreAnyTreeContent where
   parser version = getZipConduit $ RssDocument version
     <$> ZipConduit (projectC _ChannelTitle .| headRequiredC "Missing <title> element")
@@ -270,7 +270,7 @@ rssDocument = tagName' "rss" attributes $ \version -> force "Missing <channel>" 
     <*> ZipConduit (projectC _ChannelTextInput .| headC)
     <*> ZipConduit (projectC _ChannelSkipHours .| headDefC mempty)
     <*> ZipConduit (projectC _ChannelSkipDays .| headDefC mempty)
-    <*> ZipConduit (projectC _ChannelOther .| concatC .| parseRssChannelExtensions)
+    <*> ZipConduit (projectC _ChannelOther .| concatC .| parseRssChannelExtension)
   piece = [ fmap ChannelTitle <$> tagIgnoreAttrs "title" content
           , fmap ChannelLink <$> tagIgnoreAttrs "link" (content >>= asRssURI)
           , fmap ChannelDescription <$> tagIgnoreAttrs "description" content

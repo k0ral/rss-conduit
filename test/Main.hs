@@ -25,13 +25,11 @@ import           Data.Conduit
 import           Data.Conduit.List
 import           Data.Default
 import           Data.Maybe
-import           Data.Singletons.Prelude.List
 import           Data.String
-import qualified Data.Text.Lazy.Encoding      as Lazy
-import           Data.Time.Calendar
+import qualified Data.Text.Lazy.Encoding         as Lazy
+import           Data.Time.Calendar              hiding (DayOfWeek (..))
 import           Data.Time.LocalTime
 import           Data.Version
-import           Data.Vinyl.Core
 import           Data.Void
 import           Data.XML.Types
 import           Lens.Simple
@@ -39,7 +37,7 @@ import           System.FilePath
 import           System.IO
 import           System.Timeout
 import           Test.Tasty
-import           Test.Tasty.Golden            (findByExtension, goldenVsString)
+import           Test.Tasty.Golden               (findByExtension, goldenVsString)
 import           Test.Tasty.HUnit
 import           Text.Atom.Conduit.Parse
 import           Text.Atom.Types
@@ -91,7 +89,7 @@ genGoldenTests = do
     xmlFile <- xmlFiles
     let goldenFile = addExtension xmlFile ".golden"
         f file = fmap (Lazy.encodeUtf8 . fromString . show) $ runResourceT $ runConduit $ sourceFile file .| Conduit.decodeUtf8C .| XML.parseText' def .| parser
-        parser = rssDocument :: MonadThrow m => ConduitM Event o m (Maybe (RssDocument '[]))
+        parser = rssDocument :: MonadThrow m => ConduitM Event o m (Maybe (RssDocument NoExtensions))
 
     return $ goldenVsString xmlFile goldenFile $ f xmlFile
 
@@ -238,7 +236,7 @@ rss1ItemCase = testCase "RSS1 <item> element" $ do
   result^.itemTitleL @?= "Processing Inclusions with XSLT"
   result^.itemLinkL @?= Just link
   result^.itemDescriptionL @?= "Processing document inclusions with general XML tools can be problematic. This article proposes a way of preserving inclusion information through SAX-based processing."
-  result^.itemExtensionsL @?= RssItemExtensions RNil
+  result^.itemExtensionsL @?= NoItemExtensions
   where input = [ "<item xmlns=\"http://purl.org/rss/1.0/\""
                 , "xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\""
                 , "xmlns:dc=\"http://purl.org/dc/elements/1.1/\""
@@ -261,7 +259,7 @@ rss2ItemCase1 = testCase "RSS2 <item> element 1" $ do
   result^.itemLinkL @?= Just link
   result^.itemDescriptionL @?= "Here is some text containing an interesting description."
   result^.itemGuidL @?= Just (GuidText "7bd204c6-1655-4c27-aeee-53f933c5395f")
-  result^.itemExtensionsL @?= RssItemExtensions RNil
+  result^.itemExtensionsL @?= NoItemExtensions
   isJust (result^.itemPubDateL) @?= True
   where input = [ "<item>"
                 , "<title>Example entry</title>"
@@ -283,7 +281,7 @@ rss2ItemCase2 = testCase "RSS2 <item> element 2" $ do
   result^.itemDescriptionL @?= ""
   result^.itemAuthorL @?= "author@w3schools.com"
   result^.itemGuidL @?= Nothing
-  result^.itemExtensionsL @?= RssItemExtensions RNil
+  result^.itemExtensionsL @?= NoItemExtensions
   isJust (result^.itemPubDateL) @?= True
   where input = [ "<item>"
                 , "<title>Plop</title>"
@@ -323,7 +321,7 @@ rss1DocumentCase = testCase "<rdf> element" $ do
   result^?channelTextInputL._Just.textInputDescriptionL @?= Just "Search XML.com's XML collection"
   result^?channelTextInputL._Just.textInputNameL @?= Just "s"
   result^?channelTextInputL._Just.textInputLinkL @?= Just textInputLink
-  result^.channelExtensionsL @?= RssChannelExtensions RNil
+  result^.channelExtensionsL @?= NoChannelExtensions
   where input = [ "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>"
                 , "<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\" xmlns=\"http://purl.org/rss/1.0/\">"
                 , "<channel rdf:about=\"http://www.xml.com/xml/news.rss\">"
@@ -370,7 +368,7 @@ rss1DocumentCase = testCase "<rdf> element" $ do
 dublinCoreChannelCase :: TestTree
 dublinCoreChannelCase = testCase "Dublin Core <channel> extension" $ do
   Just result <- runResourceT . runConduit $ sourceList input .| XML.parseText' def .| rssDocument
-  result^.channelExtensionsL @?= RssChannelExtensions (DublinCoreChannel dublinCoreElement :& RNil)
+  result^.channelExtensionsL @?= DublinCoreChannel dublinCoreElement NoChannelExtensions
   where input = [ "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>"
                 , "<rss xmlns:dc=\"http://purl.org/dc/elements/1.1/\" version=\"2.0\">"
                 , "<channel>"
@@ -398,7 +396,7 @@ dublinCoreChannelCase = testCase "Dublin Core <channel> extension" $ do
 dublinCoreItemCase :: TestTree
 dublinCoreItemCase = testCase "Dublin Core <item> extension" $ do
   Just result <- runResourceT . runConduit $ sourceList input .| XML.parseText' def .| rssItem
-  result^.itemExtensionsL @?= RssItemExtensions (DublinCoreItem dublinCoreElement :& RNil)
+  result^.itemExtensionsL @?= DublinCoreItem dublinCoreElement NoItemExtensions
   where input = [ "<item xmlns:dc=\"http://purl.org/dc/elements/1.1/\">"
                 , "<title>Example entry</title>"
                 , "<dc:description>XML is placing increasingly heavy loads on the existing technical "
@@ -425,7 +423,7 @@ dublinCoreItemCase = testCase "Dublin Core <item> extension" $ do
 contentItemCase :: TestTree
 contentItemCase = testCase "Content <item> extension" $ do
   Just result <- runResourceT . runConduit $ sourceList input .| XML.parseText' def .| rssItem
-  result^.itemExtensionsL @?= RssItemExtensions (ContentItem "<p>What a <em>beautiful</em> day!</p>" :& RNil)
+  result^.itemExtensionsL @?= ContentItem "<p>What a <em>beautiful</em> day!</p>" NoItemExtensions
   where input = [ "<item xmlns:content=\"http://purl.org/rss/1.0/modules/content/\">"
                 , "<title>Example entry</title>"
                 , "<content:encoded><![CDATA[<p>What a <em>beautiful</em> day!</p>]]></content:encoded>"
@@ -435,7 +433,7 @@ contentItemCase = testCase "Content <item> extension" $ do
 syndicationChannelCase :: TestTree
 syndicationChannelCase = testCase "Syndication <channel> extension" $ do
   Just result <- runResourceT . runConduit $ sourceList input .| XML.parseText' def .| rssDocument
-  result^.channelExtensionsL @?= RssChannelExtensions (SyndicationChannel syndicationInfo :& RNil)
+  result^.channelExtensionsL @?= SyndicationChannel syndicationInfo NoChannelExtensions
   where input = [ "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>"
                 , "<rss xmlns:sy=\"http://purl.org/rss/1.0/modules/syndication/\" version=\"2.0\">"
                 , "<channel>"
@@ -457,7 +455,7 @@ syndicationChannelCase = testCase "Syndication <channel> extension" $ do
 atomChannelCase :: TestTree
 atomChannelCase = testCase "Atom <channel> extension" $ do
   Just result <- runResourceT . runConduit $ sourceList input .| XML.parseText' def .| rssDocument
-  result^.channelExtensionsL @?= RssChannelExtensions (AtomChannel (Just link) :& RNil)
+  result^.channelExtensionsL @?= AtomChannel (Just link) NoChannelExtensions
   where input = [ "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>"
                 , "<rss xmlns:atom=\"http://www.w3.org/2005/Atom\" version=\"2.0\">"
                 , "<channel>"
@@ -473,7 +471,7 @@ atomChannelCase = testCase "Atom <channel> extension" $ do
 multipleExtensionsCase :: TestTree
 multipleExtensionsCase = testCase "Multiple extensions" $ do
   Just result <- runResourceT . runConduit $ sourceList input .| XML.parseText' def .| rssItem
-  result^.itemExtensionsL @?= RssItemExtensions (ContentItem "<p>What a <em>beautiful</em> day!</p>" :& AtomItem (Just link) :& RNil)
+  result^.itemExtensionsL @?= ContentItem "<p>What a <em>beautiful</em> day!</p>" (AtomItem (Just link) NoItemExtensions)
   where input = [ "<item xmlns:content=\"http://purl.org/rss/1.0/modules/content/\""
                 , " xmlns:atom=\"http://www.w3.org/2005/Atom\">"
                 , "<title>Example entry</title>"

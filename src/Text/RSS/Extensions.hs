@@ -1,5 +1,3 @@
-{-# LANGUAGE ConstraintKinds     #-}
-{-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE FlexibleInstances   #-}
 {-# LANGUAGE RankNTypes          #-}
@@ -8,25 +6,53 @@
 {-# LANGUAGE TypeOperators       #-}
 -- | Support for RSS extensions.
 -- Cf specification at <http://web.resource.org/rss/1.0/modules/>.
+--
+-- To implement an RSS extension:
+--
+-- - Create a data-type, that will be used as a tag to identify the extension.
+--   To allow stacking multiple extensions, your data-type should have kind * -> *
+--
+--   > data MyExtension otherExtensions = MyExtension otherExtensions
+--
+-- - Implement extension types for @\<channel\>@ and @\<item\>@ elements:
+--
+--   > data instance RssChannelExtension (MyExtension e) = MyExtensionChannel
+--   >   { -- ... add your fields ...
+--   >   , otherChannelExtensions :: RssChannelExtension e
+--   >   }
+--   >
+--   > data instance RssItemExtension (MyExtension e) = MyExtensionItem
+--   >   { -- ... add your fields ...
+--   >   , otherItemExtensions :: RssItemExtension e
+--   >   }
+--
+-- - Implement 'ParseRssExtension' and 'RenderRssExtension' type classes:
+--
+--   > -- Parser should rely on ZipConduit to be order-insensitive
+--   > instance ParseRssExtension e => ParseRssExtension (MyExtension e) where
+--   >   parseRssChannelExtension = getZipConduit $ MyExtensionChannel
+--   >     <$> ZipConduit -- ... parse fields
+--   >     <*> ZipConduit parseRssChannelExtension
+--   >   parseRssItemExtension = -- ... similarly
+--   >
+--   > instance RenderRssExtension e => RenderRssExtension (MyExtension e) where
+--   >   renderRssChannelExtension (MyExtensionChannel {- fields -} otherChannelExtensions) = do
+--   >     -- ... render fields
+--   >     renderRssChannelExtension otherChannelExtensions
+--   >   renderRssItemExtension (MyExtensionItem {- fields -} otherItemExtensions) = -- ... similarly
 module Text.RSS.Extensions where
 
 -- {{{ Imports
-import           Control.Exception.Safe       as Exception
+import           Control.Exception.Safe  as Exception
 import           Data.Conduit
 import           Data.Maybe
 import           Data.Proxy
-import           Data.Singletons
-import           Data.Singletons.Prelude.Bool
-import           Data.Singletons.Prelude.Eq
-import           Data.Singletons.Prelude.List
 import           Data.Text
-import           Data.Vinyl.Core
-import           Data.Vinyl.TypeLevel
 import           Data.XML.Types
 import           GHC.Generics
 import           Text.Atom.Conduit.Parse
 import           Text.Atom.Types
-import           Text.Read                    (readMaybe)
+import           Text.Read               (readMaybe)
 import           Text.RSS.Types
 import           Text.XML.Stream.Parse
 import           URI.ByteString
@@ -43,28 +69,9 @@ class ParseRssExtension a where
   -- Therefore, it is expected to ignore 'Event's unrelated to the RSS extension.
   parseRssItemExtension :: MonadThrow m => ConduitT Event o m (RssItemExtension a)
 
--- | Requirement on a list of extension tags to be able to parse and combine them.
-type ParseRssExtensions (e :: [*]) = (AllConstrained ParseRssExtension e, SingI e)
-
--- | Parse a combination of RSS extensions at @\<channel\>@ level.
-parseRssChannelExtensions :: ParseRssExtensions e => MonadThrow m => ConduitT Event o m (RssChannelExtensions e)
-parseRssChannelExtensions = f sing where
-  f :: AllConstrained ParseRssExtension e => MonadThrow m
-    => Sing e -> ConduitT Event o m (RssChannelExtensions e)
-  f SNil = return $ RssChannelExtensions RNil
-  f (SCons _ es) = fmap RssChannelExtensions $ getZipConduit $ (:&)
-    <$> ZipConduit parseRssChannelExtension
-    <*> ZipConduit (rssChannelExtension <$> f es)
-
--- | Parse a combination of RSS extensions at @\<item\>@ level.
-parseRssItemExtensions :: ParseRssExtensions e => MonadThrow m => ConduitT Event o m (RssItemExtensions e)
-parseRssItemExtensions = f sing where
-  f :: AllConstrained ParseRssExtension e => MonadThrow m
-    => Sing e -> ConduitT Event o m (RssItemExtensions e)
-  f SNil = return $ RssItemExtensions RNil
-  f (SCons _ es) = fmap RssItemExtensions $ getZipConduit $ (:&)
-    <$> ZipConduit parseRssItemExtension
-    <*> ZipConduit (rssItemExtension <$> f es)
+instance ParseRssExtension NoExtensions where
+  parseRssChannelExtension = pure NoChannelExtensions
+  parseRssItemExtension = pure NoItemExtensions
 
 
 -- * Rendering
@@ -76,19 +83,6 @@ class RenderRssExtension e where
   -- | Render extension for the @\<item\>@ element.
   renderRssItemExtension :: Monad m => RssItemExtension e -> ConduitT () Event m ()
 
--- | Requirement on a list of extension tags to be able to render them.
-type RenderRssExtensions (e :: [*]) = (AllConstrained RenderRssExtension e)
-
--- | Render a set of @\<channel\>@ extensions.
-renderRssChannelExtensions :: Monad m => RenderRssExtensions e => RssChannelExtensions e -> ConduitT () Event m ()
-renderRssChannelExtensions (RssChannelExtensions RNil) = pure ()
-renderRssChannelExtensions (RssChannelExtensions (a :& t)) = do
-  renderRssChannelExtension a
-  renderRssChannelExtensions (RssChannelExtensions t)
-
--- | Render a set of @\<item\>@ extensions.
-renderRssItemExtensions :: Monad m => RenderRssExtensions e => RssItemExtensions e -> ConduitT () Event m ()
-renderRssItemExtensions (RssItemExtensions RNil) = pure ()
-renderRssItemExtensions (RssItemExtensions (a :& t)) = do
-  renderRssItemExtension a
-  renderRssItemExtensions (RssItemExtensions t)
+instance RenderRssExtension NoExtensions where
+  renderRssChannelExtension = const $ pure ()
+  renderRssItemExtension = const $ pure ()

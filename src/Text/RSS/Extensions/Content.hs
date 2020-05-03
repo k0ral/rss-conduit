@@ -1,9 +1,10 @@
-{-# LANGUAGE DataKinds         #-}
-{-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE KindSignatures    #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RankNTypes        #-}
-{-# LANGUAGE TypeFamilies      #-}
+{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE FlexibleContexts   #-}
+{-# LANGUAGE FlexibleInstances  #-}
+{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE RankNTypes         #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TypeFamilies       #-}
 -- | __Content__ extension for RSS.
 -- Cf specification at <http://web.resource.org/rss/1.0/modules/content/>.
 --
@@ -26,11 +27,10 @@ module Text.RSS.Extensions.Content
 import           Text.RSS.Extensions
 import           Text.RSS.Types
 
-import           Conduit                (ConduitT, Source, headDefC, (.|))
+import           Conduit                (ConduitT, Source, ZipConduit (..), headDefC, (.|))
 import           Control.Exception.Safe as Exception
 import           Control.Monad
 import           Data.Maybe
-import           Data.Singletons
 import           Data.Text              (Text)
 import qualified Data.Text              as Text
 import           Data.XML.Types
@@ -41,23 +41,39 @@ import           URI.ByteString
 -- }}}
 
 -- | __Content__ tag type.
-data ContentModule :: *
+newtype ContentModule a = ContentModule a
 
-data instance Sing ContentModule = SContentModule
+instance ParseRssExtension a => ParseRssExtension (ContentModule a) where
+  parseRssChannelExtension = parseRssChannelExtension
+  parseRssItemExtension    = getZipConduit $ ContentItem
+    <$> ZipConduit (manyYield' contentEncoded .| headDefC mempty)
+    <*> ZipConduit parseRssItemExtension
 
-instance SingI ContentModule where sing = SContentModule
+instance RenderRssExtension a => RenderRssExtension (ContentModule a) where
+  renderRssChannelExtension = renderRssChannelExtension
+  renderRssItemExtension (ContentItem e a) = do
+    unless (Text.null e) $ renderContentEncoded e
+    renderRssItemExtension a
 
-instance ParseRssExtension ContentModule where
-  parseRssChannelExtension = pure ContentChannel
-  parseRssItemExtension    = ContentItem <$> (manyYield' contentEncoded .| headDefC mempty)
+data instance RssChannelExtension (ContentModule a) = ContentChannel (RssChannelExtension a)
 
-instance RenderRssExtension ContentModule where
-  renderRssChannelExtension = const $ pure ()
-  renderRssItemExtension (ContentItem e) = unless (Text.null e) $ renderContentEncoded e
+deriving instance Eq (RssChannelExtension a) => Eq (RssChannelExtension (ContentModule a))
+deriving instance Ord (RssChannelExtension a) => Ord (RssChannelExtension (ContentModule a))
+deriving instance Read (RssChannelExtension a) => Read (RssChannelExtension (ContentModule a))
+deriving instance Show (RssChannelExtension a) => Show (RssChannelExtension (ContentModule a))
+deriving instance Generic (RssChannelExtension a) => Generic (RssChannelExtension (ContentModule a))
 
-data instance RssChannelExtension ContentModule = ContentChannel deriving(Eq, Generic, Ord, Show)
-data instance RssItemExtension ContentModule = ContentItem { itemContent :: Text }
-  deriving(Eq, Generic, Ord, Show)
+data instance RssItemExtension (ContentModule a) = ContentItem
+  { itemContent :: Text
+  , itemOther   :: RssItemExtension a
+  }
+
+deriving instance Eq (RssItemExtension a) => Eq (RssItemExtension (ContentModule a))
+deriving instance Ord (RssItemExtension a) => Ord (RssItemExtension (ContentModule a))
+deriving instance Read (RssItemExtension a) => Read (RssItemExtension (ContentModule a))
+deriving instance Show (RssItemExtension a) => Show (RssItemExtension (ContentModule a))
+deriving instance Generic (RssItemExtension a) => Generic (RssItemExtension (ContentModule a))
+
 
 
 -- | XML prefix is @content@.

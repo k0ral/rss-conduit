@@ -5,8 +5,6 @@ module Text.RSS.Lens (module Text.RSS.Lens) where
 -- {{{ Imports
 import           Text.RSS.Types
 
-import           Data.Vinyl.Lens
-import           Data.Vinyl.TypeLevel
 import           Lens.Simple
 import           URI.ByteString
 -- }}}
@@ -31,10 +29,6 @@ itemEnclosureL :: Traversal' (RssItem e) RssEnclosure
 itemEnclosureL inj a@RssItem { itemEnclosure = e } = (\x -> a { itemEnclosure = e }) <$> traverse inj e
 {-# INLINE itemEnclosureL #-}
 
-itemExtensionL :: RElem a e (RIndex a e) => Lens' (RssItem e) (RssItemExtension a)
-itemExtensionL = itemExtensionsL . f . rlens where
-  f inj (RssItemExtensions a) = RssItemExtensions <$> inj a
-{-# INLINE itemExtensionL #-}
 
 $(makeLensesBy (\n -> Just (n ++ "L")) ''RssTextInput)
 $(makeLensesBy (\n -> Just (n ++ "L")) ''RssCloud)
@@ -53,8 +47,3 @@ channelItemsL inj a@RssDocument { channelItems = i } = (\x -> a { channelItems =
 channelCategoriesL :: Traversal' (RssDocument e) RssCategory
 channelCategoriesL inj a@RssDocument { channelCategories = c } = (\x -> a { channelCategories = c }) <$> traverse inj c
 {-# INLINE channelCategoriesL #-}
-
-channelExtensionL :: RElem a e (RIndex a e) => Lens' (RssDocument e) (RssChannelExtension a)
-channelExtensionL = channelExtensionsL . f . rlens where
-  f inj (RssChannelExtensions a) = RssChannelExtensions <$> inj a
-{-# INLINE channelExtensionL #-}
