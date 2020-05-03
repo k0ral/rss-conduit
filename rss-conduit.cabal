@@ -64,7 +64,7 @@ test-suite tests
     type: exitcode-stdio-1.0
     main-is: Main.hs
     build-depends:
-        rss-conduit -any,
+        rss-conduit,
         atom-conduit >=0.5,
         blaze-builder -any,
         bytestring -any,
@@ -92,7 +92,7 @@ test-suite quickcheck-tests
     type: exitcode-stdio-1.0
     main-is: QuickCheck.hs
     build-depends:
-        rss-conduit -any,
+        rss-conduit,
         atom-conduit >=0.5,
         blaze-builder -any,
         bytestring -any,
