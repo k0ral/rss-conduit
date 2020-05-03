@@ -10,7 +10,7 @@ bug-reports: https://github.com/k0ral/rss-conduit/issues
 synopsis: Streaming parser/renderer for the RSS standard.
 description: Cf README file.
 category: XML, Conduit
-tested-with: GHC ==8.6.3 || ==8.4.4 || ==8.2.2 || ==8.0.2
+tested-with: GHC <8.9 && >=8.4.2
 extra-source-files:
     README.md
 
