@@ -12,8 +12,8 @@
 module Text.RSS.Extensions.Content
   ( -- * Types
     ContentModule(..)
-  , RssChannelExtension(ContentChannel)
-  , RssItemExtension(ContentItem)
+  , RssChannelExtension(..)
+  , RssItemExtension(..)
     -- * Parser
   , contentEncoded
     -- * Renderer
@@ -55,7 +55,7 @@ instance RenderRssExtension a => RenderRssExtension (ContentModule a) where
     unless (Text.null e) $ renderContentEncoded e
     renderRssItemExtension a
 
-data instance RssChannelExtension (ContentModule a) = ContentChannel (RssChannelExtension a)
+data instance RssChannelExtension (ContentModule a) = ContentChannel { channelContentOther :: RssChannelExtension a }
 
 deriving instance Eq (RssChannelExtension a) => Eq (RssChannelExtension (ContentModule a))
 deriving instance Ord (RssChannelExtension a) => Ord (RssChannelExtension (ContentModule a))
@@ -65,7 +65,7 @@ deriving instance Generic (RssChannelExtension a) => Generic (RssChannelExtensio
 
 data instance RssItemExtension (ContentModule a) = ContentItem
   { itemContent :: Text
-  , itemOther   :: RssItemExtension a
+  , itemContentOther   :: RssItemExtension a
   }
 
 deriving instance Eq (RssItemExtension a) => Eq (RssItemExtension (ContentModule a))

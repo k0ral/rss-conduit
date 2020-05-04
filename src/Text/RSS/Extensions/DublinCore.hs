@@ -11,10 +11,8 @@
 --  Cf specification at <http://web.resource.org/rss/1.0/modules/dc/>.
 module Text.RSS.Extensions.DublinCore
   ( DublinCoreModule(..)
-  , RssChannelExtension(DublinCoreChannel)
-  , channelDcMetaData
-  , RssItemExtension(DublinCoreItem)
-  , itemDcMetaData
+  , RssChannelExtension(..)
+  , RssItemExtension(..)
   , DcMetaData(..)
   , mkDcMetaData
   ) where

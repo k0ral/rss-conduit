@@ -12,8 +12,8 @@
 module Text.RSS.Extensions.Syndication
   ( -- * Types
     SyndicationModule(..)
-  , RssChannelExtension(SyndicationChannel)
-  , RssItemExtension(SyndicationItem)
+  , RssChannelExtension(..)
+  , RssItemExtension(..)
   , SyndicationInfo(..)
   , mkSyndicationInfo
   , SyndicationPeriod(..)
@@ -207,7 +207,7 @@ deriving instance Read (RssChannelExtension a) => Read (RssChannelExtension (Syn
 deriving instance Show (RssChannelExtension a) => Show (RssChannelExtension (SyndicationModule a))
 deriving instance Generic (RssChannelExtension a) => Generic (RssChannelExtension (SyndicationModule a))
 
-data instance RssItemExtension (SyndicationModule a) = SyndicationItem (RssItemExtension a)
+data instance RssItemExtension (SyndicationModule a) = SyndicationItem { itemSyndicationOther :: RssItemExtension a }
 
 deriving instance Eq (RssItemExtension a) => Eq (RssItemExtension (SyndicationModule a))
 deriving instance Ord (RssItemExtension a) => Ord (RssItemExtension (SyndicationModule a))
