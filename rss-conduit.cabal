@@ -1,6 +1,6 @@
 cabal-version: 2.2
 name: rss-conduit
-version: 0.5.0.0
+version: 0.5.1.0
 build-type: Simple
 license: CC0-1.0
 license-file: LICENSE
