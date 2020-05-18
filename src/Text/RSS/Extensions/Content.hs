@@ -44,13 +44,13 @@ import           URI.ByteString
 newtype ContentModule a = ContentModule a
 
 instance ParseRssExtension a => ParseRssExtension (ContentModule a) where
-  parseRssChannelExtension = parseRssChannelExtension
+  parseRssChannelExtension = ContentChannel <$> parseRssChannelExtension
   parseRssItemExtension    = getZipConduit $ ContentItem
     <$> ZipConduit (manyYield' contentEncoded .| headDefC mempty)
     <*> ZipConduit parseRssItemExtension
 
 instance RenderRssExtension a => RenderRssExtension (ContentModule a) where
-  renderRssChannelExtension = renderRssChannelExtension
+  renderRssChannelExtension (ContentChannel a) = renderRssChannelExtension a
   renderRssItemExtension (ContentItem e a) = do
     unless (Text.null e) $ renderContentEncoded e
     renderRssItemExtension a
