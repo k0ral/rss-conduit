@@ -32,7 +32,7 @@ import           Data.Time.LocalTime
 import           Data.Version
 import           Data.Void
 import           Data.XML.Types
-import           Lens.Simple
+import           Lens.Micro
 import           System.FilePath
 import           System.IO
 import           System.Timeout
@@ -316,7 +316,7 @@ rss1DocumentCase = testCase "<rdf> element" $ do
   result^?channelImageL._Just.imageTitleL @?= Just "XML.com"
   result^?channelImageL._Just.imageLinkL @?= Just imageLink
   result^?channelImageL._Just.imageUriL @?= Just imageUri
-  length (result^..channelItemsL) @?= 2
+  length (result^.channelItemsL) @?= 2
   result^?channelTextInputL._Just.textInputTitleL @?= Just "Search XML.com"
   result^?channelTextInputL._Just.textInputDescriptionL @?= Just "Search XML.com's XML collection"
   result^?channelTextInputL._Just.textInputNameL @?= Just "s"

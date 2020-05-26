@@ -33,7 +33,8 @@ import           Data.Time.LocalTime
 import           Data.Time.RFC822
 import           Data.Version
 import           Data.XML.Types
-import           Lens.Simple
+import           Lens.Micro
+import           Lens.Micro.Extras
 import           Safe
 import           Text.XML.Stream.Render
 import           URI.ByteString
@@ -52,7 +53,7 @@ renderRssDocument d = tag "rss" (attr "version" . pack . showVersion $ d^.docume
     optionalTextTag "webMaster" $ d^.channelWebmasterL
     forM_ (d^.channelPubDateL) $ dateTag "pubDate"
     forM_ (d^.channelLastBuildDateL) $ dateTag "lastBuildDate"
-    forM_ (d^..channelCategoriesL) renderRssCategory
+    forM_ (d^.channelCategoriesL) renderRssCategory
     optionalTextTag "generator" $ d^.channelGeneratorL
     forM_ (d^.channelDocsL) $ textTag "docs" . renderRssURI
     forM_ (d^.channelCloudL) renderRssCloud
@@ -62,7 +63,7 @@ renderRssDocument d = tag "rss" (attr "version" . pack . showVersion $ d^.docume
     forM_ (d^.channelTextInputL) renderRssTextInput
     renderRssSkipHours $ d^.channelSkipHoursL
     renderRssSkipDays $ d^.channelSkipDaysL
-    forM_ (d^..channelItemsL) renderRssItem
+    forM_ (d^.channelItemsL) renderRssItem
     renderRssChannelExtension $ d^.channelExtensionsL
 
 -- | Render an @\<item\>@ element.
@@ -72,9 +73,9 @@ renderRssItem i = tag "item" mempty $ do
   forM_ (i^.itemLinkL) $ textTag "link" . renderRssURI
   optionalTextTag "description" $ i^.itemDescriptionL
   optionalTextTag "author" $ i^.itemAuthorL
-  forM_ (i^..itemCategoriesL) renderRssCategory
+  forM_ (i^.itemCategoriesL) renderRssCategory
   forM_ (i^.itemCommentsL) $ textTag "comments" . renderRssURI
-  forM_ (i^..itemEnclosureL) renderRssEnclosure
+  forM_ (i^.itemEnclosureL) renderRssEnclosure
   forM_ (i^.itemGuidL) renderRssGuid
   forM_ (i^.itemPubDateL) $ dateTag "pubDate"
   forM_ (i^.itemSourceL) renderRssSource

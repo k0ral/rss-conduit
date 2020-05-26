@@ -33,7 +33,8 @@ import           Data.Time.LocalTime
 import           Data.Time.RFC3339
 import           Data.XML.Types
 import           GHC.Generics
-import           Lens.Simple
+import           Lens.Micro
+import           Lens.Micro.TH
 import qualified Text.XML.DublinCore.Conduit.Parse  as DC
 import           Text.XML.DublinCore.Conduit.Render
 import           Text.XML.Stream.Parse
@@ -41,7 +42,7 @@ import           URI.ByteString
 -- }}}
 
 -- {{{ Utils
-projectC :: Monad m => Fold a a' b b' -> ConduitT a b m ()
+projectC :: Monad m => Traversal' a b -> ConduitT a b m ()
 projectC prism = fix $ \recurse -> do
   item <- await
   case (item, item ^? (_Just . prism)) of
@@ -73,33 +74,43 @@ data DcMetaData = DcMetaData
 mkDcMetaData = DcMetaData mempty mempty mempty Nothing mempty mempty mempty mempty mempty mempty mempty mempty mempty mempty mempty
 
 
-data ElementPiece = ElementContributor Text | ElementCoverage Text | ElementCreator Text
-                  | ElementDate UTCTime | ElementDescription Text | ElementFormat Text
-                  | ElementIdentifier Text | ElementLanguage Text | ElementPublisher Text
-                  | ElementRelation Text | ElementRights Text | ElementSource Text
-                  | ElementSubject Text | ElementTitle Text | ElementType Text
+data ElementPiece = ElementContributor { __elementContributor :: Text }
+                  | ElementCoverage { __elementCoverage :: Text }
+                  | ElementCreator { __elementCreator :: Text }
+                  | ElementDate { __elementDate :: UTCTime }
+                  | ElementDescription { __elementDescription :: Text }
+                  | ElementFormat { __elementFormat :: Text }
+                  | ElementIdentifier { __elementIdentifier :: Text }
+                  | ElementLanguage { __elementLanguage :: Text }
+                  | ElementPublisher { __elementPublisher :: Text }
+                  | ElementRelation { __elementRelation :: Text }
+                  | ElementRights { __elementRights :: Text }
+                  | ElementSource { __elementSource :: Text }
+                  | ElementSubject { __elementSubject :: Text }
+                  | ElementTitle { __elementTitle :: Text }
+                  | ElementType { __elementType :: Text }
 
-makeTraversals ''ElementPiece
+makeLenses ''ElementPiece
 
 -- | Parse a set of Dublin Core metadata elements.
 dcMetadata :: MonadThrow m => ConduitT Event o m DcMetaData
 dcMetadata = manyYield' (choose piece) .| parser where
   parser = getZipConduit $ DcMetaData
-    <$> ZipConduit (projectC _ElementContributor .| headDefC "")
-    <*> ZipConduit (projectC _ElementCoverage .| headDefC "")
-    <*> ZipConduit (projectC _ElementCreator .| headDefC "")
-    <*> ZipConduit (projectC _ElementDate .| headC)
-    <*> ZipConduit (projectC _ElementDescription .| headDefC "")
-    <*> ZipConduit (projectC _ElementFormat .| headDefC "")
-    <*> ZipConduit (projectC _ElementIdentifier .| headDefC "")
-    <*> ZipConduit (projectC _ElementLanguage .| headDefC "")
-    <*> ZipConduit (projectC _ElementPublisher .| headDefC "")
-    <*> ZipConduit (projectC _ElementRelation .| headDefC "")
-    <*> ZipConduit (projectC _ElementRights .| headDefC "")
-    <*> ZipConduit (projectC _ElementSource .| headDefC "")
-    <*> ZipConduit (projectC _ElementSubject .| headDefC "")
-    <*> ZipConduit (projectC _ElementTitle .| headDefC "")
-    <*> ZipConduit (projectC _ElementType .| headDefC "")
+    <$> ZipConduit (projectC _elementContributor .| headDefC "")
+    <*> ZipConduit (projectC _elementCoverage .| headDefC "")
+    <*> ZipConduit (projectC _elementCreator .| headDefC "")
+    <*> ZipConduit (projectC _elementDate .| headC)
+    <*> ZipConduit (projectC _elementDescription .| headDefC "")
+    <*> ZipConduit (projectC _elementFormat .| headDefC "")
+    <*> ZipConduit (projectC _elementIdentifier .| headDefC "")
+    <*> ZipConduit (projectC _elementLanguage .| headDefC "")
+    <*> ZipConduit (projectC _elementPublisher .| headDefC "")
+    <*> ZipConduit (projectC _elementRelation .| headDefC "")
+    <*> ZipConduit (projectC _elementRights .| headDefC "")
+    <*> ZipConduit (projectC _elementSource .| headDefC "")
+    <*> ZipConduit (projectC _elementSubject .| headDefC "")
+    <*> ZipConduit (projectC _elementTitle .| headDefC "")
+    <*> ZipConduit (projectC _elementType .| headDefC "")
   piece = [ fmap ElementContributor <$> DC.elementContributor
           , fmap ElementCoverage <$> DC.elementCoverage
           , fmap ElementCreator <$> DC.elementCreator

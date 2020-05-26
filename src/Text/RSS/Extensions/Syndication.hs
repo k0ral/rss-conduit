@@ -51,7 +51,8 @@ import           Data.Time.RFC3339
 import           Data.Time.RFC822
 import           Data.XML.Types
 import           GHC.Generics
-import           Lens.Simple
+import           Lens.Micro
+import           Lens.Micro.TH
 import           Text.Read
 import           Text.XML.Stream.Parse
 import qualified Text.XML.Stream.Render as Render
@@ -69,7 +70,7 @@ asDate text = maybe (throw $ InvalidTime text) (return . zonedTimeToUTC) $
 asInt :: MonadThrow m => Text -> m Int
 asInt t = maybe (throwM $ InvalidInt t) return . readMaybe $ unpack t
 
-projectC :: Monad m => Fold a a' b b' -> ConduitT a b m ()
+projectC :: Monad m => Traversal' a b -> ConduitT a b m ()
 projectC prism = fix $ \recurse -> do
   item <- await
   case (item, item ^? (_Just . prism)) of
@@ -132,17 +133,19 @@ mkSyndicationInfo :: SyndicationInfo
 mkSyndicationInfo = SyndicationInfo mzero mzero mzero
 
 
-data ElementPiece = ElementPeriod SyndicationPeriod | ElementFrequency Int | ElementBase UTCTime
+data ElementPiece = ElementPeriod { __elementPeriod :: SyndicationPeriod }
+                  | ElementFrequency { __elementFrequency :: Int }
+                  | ElementBase { __elementBase :: UTCTime }
 
-makeTraversals ''ElementPiece
+makeLenses ''ElementPiece
 
 -- | Parse all __Syndication__ elements.
 syndicationInfo :: MonadThrow m => ConduitT Event o m SyndicationInfo
 syndicationInfo = manyYield' (choose piece) .| parser where
   parser = getZipConduit $ SyndicationInfo
-    <$> ZipConduit (projectC _ElementPeriod .| headC)
-    <*> ZipConduit (projectC _ElementFrequency .| headC)
-    <*> ZipConduit (projectC _ElementBase .| headC)
+    <$> ZipConduit (projectC _elementPeriod .| headC)
+    <*> ZipConduit (projectC _elementFrequency .| headC)
+    <*> ZipConduit (projectC _elementBase .| headC)
   piece = [ fmap ElementPeriod <$> syndicationPeriod
           , fmap ElementFrequency <$> syndicationFrequency
           , fmap ElementBase <$> syndicationBase

@@ -32,7 +32,8 @@ import           Data.Time.LocalTime
 import           Data.Time.RFC3339
 import           Data.Version
 import           Data.XML.Types
-import           Lens.Simple
+import           Lens.Micro
+import           Lens.Micro.TH
 import           Text.XML.Stream.Parse
 import           URI.ByteString
 -- }}}
@@ -55,7 +56,7 @@ nullURI = RssURI $ RelativeRef Nothing "" (Query []) Nothing
 headRequiredC :: MonadThrow m => Text -> ConduitT a b m a
 headRequiredC e = maybe (throw $ MissingElement e) return =<< headC
 
-projectC :: Monad m => Fold a a' b b' -> ConduitT a b m ()
+projectC :: Monad m => Traversal' a b -> ConduitT a b m ()
 projectC prism = fix $ \recurse -> do
   item <- await
   case (item, item ^? (_Just . prism)) of
@@ -90,19 +91,21 @@ rss1Name string = Name string (Just "http://purl.org/rss/1.0/") Nothing
 -- }}}
 
 
-data TextInputPiece = TextInputTitle Text | TextInputDescription Text
-                    | TextInputName Text | TextInputLink RssURI
+data TextInputPiece = TextInputTitle { __textInputTitle :: Text }
+                    | TextInputDescription { __textInputDescription :: Text }
+                    | TextInputName { __textInputName :: Text }
+                    | TextInputLink { __textInputLink :: RssURI }
 
-makeTraversals ''TextInputPiece
+makeLenses ''TextInputPiece
 
 -- | Parse a @\<textinput\>@ element.
 rss1TextInput :: MonadThrow m => ConduitM Event o m (Maybe RssTextInput)
 rss1TextInput = rss1Tag "textinput" attributes $ \uri -> (manyYield' (choose piece) .| parser uri) <* many ignoreAnyTreeContent where
   parser uri = getZipConduit $ RssTextInput
-    <$> ZipConduit (projectC _TextInputTitle .| headRequiredC "Missing <title> element")
-    <*> ZipConduit (projectC _TextInputDescription .| headRequiredC "Missing <description> element")
-    <*> ZipConduit (projectC _TextInputName .| headRequiredC "Missing <name> element")
-    <*> ZipConduit (projectC _TextInputLink .| headDefC uri)  -- Lenient
+    <$> ZipConduit (projectC _textInputTitle .| headRequiredC "Missing <title> element")
+    <*> ZipConduit (projectC _textInputDescription .| headRequiredC "Missing <description> element")
+    <*> ZipConduit (projectC _textInputName .| headRequiredC "Missing <name> element")
+    <*> ZipConduit (projectC _textInputLink .| headDefC uri)  -- Lenient
   piece = [ fmap TextInputTitle <$> rss1Tag "title" ignoreAttrs (const content)
           , fmap TextInputDescription <$> rss1Tag "description" ignoreAttrs (const content)
           , fmap TextInputName <$> rss1Tag "name" ignoreAttrs (const content)
@@ -111,10 +114,15 @@ rss1TextInput = rss1Tag "textinput" attributes $ \uri -> (manyYield' (choose pie
   attributes = (requireAttr (rdfName "about") >>= asRssURI) <* ignoreAttrs
 
 
-data ItemPiece = ItemTitle Text | ItemLink RssURI | ItemDescription Text | ItemCreator Text
-               | ItemDate UTCTime | ItemContent Text | ItemOther (NonEmpty Event)
+data ItemPiece = ItemTitle { __itemTitle :: Text }
+               | ItemLink { __itemLink :: RssURI }
+               | ItemDescription { __itemDescription :: Text }
+               | ItemCreator { __itemCreator :: Text }
+               | ItemDate { __itemDate :: UTCTime }
+               | ItemContent { __itemContent :: Text }
+               | ItemOther { __itemOther :: NonEmpty Event }
 
-makeTraversals ''ItemPiece
+makeLenses ''ItemPiece
 
 -- | Parse an @\<item\>@ element.
 --
@@ -122,17 +130,17 @@ makeTraversals ''ItemPiece
 rss1Item :: ParseRssExtension e => MonadCatch m => ConduitM Event o m (Maybe (RssItem e))
 rss1Item = rss1Tag "item" attributes $ \uri -> (manyYield' (choose piece) .| parser uri) <* many ignoreAnyTreeContent where
   parser uri = getZipConduit $ RssItem
-    <$> ZipConduit (projectC _ItemTitle .| headDefC mempty)
-    <*> (Just <$> ZipConduit (projectC _ItemLink .| headDefC uri))
-    <*> ZipConduit (projectC _ItemDescription .| headDefC mempty)
-    <*> ZipConduit (projectC _ItemCreator .| headDefC mempty)
+    <$> ZipConduit (projectC _itemTitle .| headDefC mempty)
+    <*> (Just <$> ZipConduit (projectC _itemLink .| headDefC uri))
+    <*> ZipConduit (projectC _itemDescription .| headDefC mempty)
+    <*> ZipConduit (projectC _itemCreator .| headDefC mempty)
     <*> pure mempty
     <*> pure mzero
     <*> pure mempty
     <*> pure mzero
-    <*> ZipConduit (projectC _ItemDate .| headC)
+    <*> ZipConduit (projectC _itemDate .| headC)
     <*> pure mzero
-    <*> ZipConduit (projectC _ItemOther .| concatC .| parseRssItemExtension)
+    <*> ZipConduit (projectC _itemOther .| concatC .| parseRssItemExtension)
   piece = [ fmap ItemTitle <$> rss1Tag "title" ignoreAttrs (const content)
           , fmap ItemLink <$> rss1Tag "link" ignoreAttrs (const $ content >>= asRssURI)
           , fmap ItemDescription <$> (rss1Tag "description" ignoreAttrs (const content) `orE` contentTag "encoded" ignoreAttrs (const content))
@@ -143,17 +151,19 @@ rss1Item = rss1Tag "item" attributes $ \uri -> (manyYield' (choose piece) .| par
   attributes = (requireAttr (rdfName "about") >>= asRssURI) <* ignoreAttrs
 
 
-data ImagePiece = ImageUri RssURI | ImageTitle Text | ImageLink RssURI
+data ImagePiece = ImageUri { __imageUri :: RssURI }
+  | ImageTitle { __imageTitle :: Text }
+  | ImageLink { __imageLink :: RssURI }
 
-makeTraversals ''ImagePiece
+makeLenses ''ImagePiece
 
 -- | Parse an @\<image\>@ element.
 rss1Image :: (MonadThrow m) => ConduitM Event o m (Maybe RssImage)
 rss1Image = rss1Tag "image" attributes $ \uri -> (manyYield' (choose piece) .| parser uri) <* many ignoreAnyTreeContent where
   parser uri = getZipConduit $ RssImage
-    <$> ZipConduit (projectC _ImageUri .| headDefC uri)  -- Lenient
-    <*> ZipConduit (projectC _ImageTitle .| headDefC "Unnamed image")  -- Lenient
-    <*> ZipConduit (projectC _ImageLink .| headDefC nullURI)  -- Lenient
+    <$> ZipConduit (projectC _imageUri .| headDefC uri)  -- Lenient
+    <*> ZipConduit (projectC _imageTitle .| headDefC "Unnamed image")  -- Lenient
+    <*> ZipConduit (projectC _imageLink .| headDefC nullURI)  -- Lenient
     <*> pure mzero
     <*> pure mzero
     <*> pure mempty
@@ -181,15 +191,15 @@ data Rss1Channel extensions = Rss1Channel
   , channelExtensions'  :: RssChannelExtension extensions
   }
 
-data ChannelPiece = ChannelTitle Text
-  | ChannelLink RssURI
-  | ChannelDescription Text
-  | ChannelImage RssImage
-  | ChannelItems [Text]
-  | ChannelTextInput RssURI
-  | ChannelOther (NonEmpty Event)
+data ChannelPiece = ChannelTitle { __channelTitle :: Text }
+  | ChannelLink { __channelLink :: RssURI }
+  | ChannelDescription { __channelDescription :: Text }
+  | ChannelImage { __channelImage :: RssImage }
+  | ChannelItems { __channelItems :: [Text] }
+  | ChannelTextInput { __channelTextInput :: RssURI }
+  | ChannelOther { __channelOther :: NonEmpty Event }
 
-makeTraversals ''ChannelPiece
+makeLenses ''ChannelPiece
 
 
 -- | Parse a @\<channel\>@ element.
@@ -198,13 +208,13 @@ makeTraversals ''ChannelPiece
 rss1Channel :: ParseRssExtension e => MonadThrow m => ConduitM Event o m (Maybe (Rss1Channel e))
 rss1Channel = rss1Tag "channel" attributes $ \channelId -> (manyYield' (choose piece) .| parser channelId) <* many ignoreAnyTreeContent where
   parser channelId = getZipConduit $ Rss1Channel channelId
-    <$> ZipConduit (projectC _ChannelTitle .| headRequiredC "Missing <title> element")
-    <*> ZipConduit (projectC _ChannelLink .| headRequiredC "Missing <link> element")
-    <*> ZipConduit (projectC _ChannelDescription .| headDefC "")  -- Lenient
-    <*> ZipConduit (projectC _ChannelItems .| concatC .| sinkList)
-    <*> ZipConduit (projectC _ChannelImage .| headC)
-    <*> ZipConduit (projectC _ChannelTextInput .| headC)
-    <*> ZipConduit (projectC _ChannelOther .| concatC .| parseRssChannelExtension)
+    <$> ZipConduit (projectC _channelTitle .| headRequiredC "Missing <title> element")
+    <*> ZipConduit (projectC _channelLink .| headRequiredC "Missing <link> element")
+    <*> ZipConduit (projectC _channelDescription .| headDefC "")  -- Lenient
+    <*> ZipConduit (projectC _channelItems .| concatC .| sinkList)
+    <*> ZipConduit (projectC _channelImage .| headC)
+    <*> ZipConduit (projectC _channelTextInput .| headC)
+    <*> ZipConduit (projectC _channelOther .| concatC .| parseRssChannelExtension)
   piece = [ fmap ChannelTitle <$> rss1Tag "title" ignoreAttrs (const content)
           , fmap ChannelLink <$> rss1Tag "link" ignoreAttrs (const $ content >>= asRssURI)
           , fmap ChannelDescription <$> rss1Tag "description" ignoreAttrs (const content)
@@ -243,12 +253,12 @@ rss1ToRss2 (Rss1Document channel image items textInput) = RssDocument
   mempty
   (channelExtensions' channel)
 
-data DocumentPiece e = DocumentChannel (Rss1Channel e)
-  | DocumentImage RssImage
-  | DocumentItem (RssItem e)
-  | DocumentTextInput RssTextInput
+data DocumentPiece e = DocumentChannel { __documentChannel :: Rss1Channel e }
+  | DocumentImage { __documentImage :: RssImage }
+  | DocumentItem { __documentItem :: RssItem e }
+  | DocumentTextInput { __documentTextInput :: RssTextInput }
 
-makeTraversals ''DocumentPiece
+makeLenses ''DocumentPiece
 
 
 -- | Parse an @\<RDF\>@ element.
@@ -257,10 +267,10 @@ makeTraversals ''DocumentPiece
 rss1Document :: ParseRssExtension e => MonadCatch m => ConduitM Event o m (Maybe (RssDocument e))
 rss1Document = fmap (fmap rss1ToRss2) $ rdfTag "RDF" ignoreAttrs $ const $ (manyYield' (choose piece) .| parser) <* many ignoreAnyTreeContent where
   parser = getZipConduit $ Rss1Document
-    <$> ZipConduit (projectC _DocumentChannel .| headRequiredC "Missing <channel> element")
-    <*> ZipConduit (projectC _DocumentImage .| headC)
-    <*> ZipConduit (projectC _DocumentItem .| sinkList)
-    <*> ZipConduit (projectC _DocumentTextInput .| headC)
+    <$> ZipConduit (projectC _documentChannel .| headRequiredC "Missing <channel> element")
+    <*> ZipConduit (projectC _documentImage .| headC)
+    <*> ZipConduit (projectC _documentItem .| sinkList)
+    <*> ZipConduit (projectC _documentTextInput .| headC)
   piece = [ fmap DocumentChannel <$> rss1Channel
           , fmap DocumentImage <$> rss1Image
           , fmap DocumentItem <$> rss1Item
