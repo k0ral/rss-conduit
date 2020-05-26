@@ -74,7 +74,7 @@ asBool "false" = return False
 asBool t       = throwM $ InvalidBool t
 
 asVersion :: MonadThrow m => Text -> m Version
-asVersion t = maybe (throwM $ InvalidVersion t) return . fmap fst . headMay . readP_to_S parseVersion $ unpack t
+asVersion t = maybe (throwM $ InvalidVersion t) (return . fst) . headMay . readP_to_S parseVersion $ unpack t
 
 asCloudProtocol :: MonadThrow m => Text -> m CloudProtocol
 asCloudProtocol "xml-rpc"   = return ProtocolXmlRpc
