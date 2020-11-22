@@ -39,6 +39,7 @@ import           Data.Set                     (Set, fromList)
 import           Data.Text                    as Text
 import           Data.Text.Encoding
 import           Data.Time.Clock
+import           Data.Time.Format
 import           Data.Time.LocalTime
 import           Data.Time.RFC3339
 import           Data.Time.RFC822
@@ -86,11 +87,20 @@ asCloudProtocol t           = throwM $ InvalidProtocol t
 tagName' :: MonadThrow m => Text -> AttrParser a -> (a -> ConduitM Event o m b) -> ConduitM Event o m (Maybe b)
 tagName' t = tag' (matching $ \n -> nameLocalName n == t && isNothing (nameNamespace n))
 
--- | Tag which content is a date-time that follows RFC 3339 format.
+-- | Tag which content is a date-time.
+-- RSS specification demands that date-times are formatted according to RFC 822,
+-- but this implementation is more lenient.
 tagDate :: (MonadThrow m) => NameMatcher a -> ConduitM Event o m (Maybe UTCTime)
-tagDate name = tagIgnoreAttrs name $ fmap zonedTimeToUTC $ do
+tagDate name = tagIgnoreAttrs name $ do
   text <- content
-  maybe (throw $ InvalidTime text) return $ parseTimeRFC822 text <|> parseTimeRFC3339 text
+  maybe (throw $ InvalidTime text) return $
+    rfc822Time text <|> rfc3339Time text <|> rfc3339Date text <|> customDate1 text <|> customDate2 text
+  where rfc822Time t = zonedTimeToUTC <$> parseTimeRFC822 t
+        rfc3339Time t = zonedTimeToUTC <$> parseTimeRFC3339 t
+        rfc3339Date t = UTCTime <$> parseDateRFC3339 t <*> pure 0
+        customDate1 t = parseTimeM True defaultTimeLocale "%F %T" (Text.unpack t)
+        customDate2 t = parseTimeM True defaultTimeLocale "%F %R" (Text.unpack t)
+
 
 headRequiredC :: MonadThrow m => Text -> ConduitT a b m a
 headRequiredC e = maybe (throw $ MissingElement e) return =<< headC

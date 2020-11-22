@@ -291,6 +291,43 @@ rss2ItemCase2 = testCase "RSS2 <item> element 2" $ do
                 ]
         link = RssURI [uri|http://www.example.com/blog/post/1|]
 
+rss2ItemCase3 :: TestTree
+rss2ItemCase3 = testCase "RSS2 <item> element 3" $ do
+  result <- runResourceT . runConduit $ sourceList input .| XML.parseText def .| force "ERROR" rssItem
+  result^.itemExtensionsL @?= NoItemExtensions
+  isJust (result^.itemPubDateL) @?= True
+  where input = [ "<item>"
+                , "<title>Plop</title>"
+                , "<author>author@w3schools.com</author>"
+                , "<pubDate>2018-07-13</pubDate>"
+                , "</item>"
+                ]
+
+rss2ItemCase4 :: TestTree
+rss2ItemCase4 = testCase "RSS2 <item> element 4" $ do
+  result <- runResourceT . runConduit $ sourceList input .| XML.parseText def .| force "ERROR" rssItem
+  result^.itemExtensionsL @?= NoItemExtensions
+  isJust (result^.itemPubDateL) @?= True
+  where input = [ "<item>"
+                , "<title>Plop</title>"
+                , "<author>author@w3schools.com</author>"
+                , "<pubDate>2018-07-13 00:00:00</pubDate>"
+                , "</item>"
+                ]
+
+rss2ItemCase5 :: TestTree
+rss2ItemCase5 = testCase "RSS2 <item> element 5" $ do
+  result <- runResourceT . runConduit $ sourceList input .| XML.parseText def .| force "ERROR" rssItem
+  result^.itemExtensionsL @?= NoItemExtensions
+  isJust (result^.itemPubDateL) @?= True
+  where input = [ "<item>"
+                , "<title>Plop</title>"
+                , "<author>author@w3schools.com</author>"
+                , "<pubDate>2018-07-13 00:00</pubDate>"
+                , "</item>"
+                ]
+
+
 
 rss1ChannelItemsCase :: TestTree
 rss1ChannelItemsCase = testCase "RSS1 <items> element" $ do
